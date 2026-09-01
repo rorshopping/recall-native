@@ -30,11 +30,7 @@ struct ReviewView: View {
                 else { ProgressView() }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
         .task { initializeIfNeeded() }
     }
@@ -46,23 +42,17 @@ struct ReviewView: View {
                 Text(deck?.name ?? "Review").font(.headline)
                 Spacer()
                 Text("\(min(reviewed + 1, max(total, 1))) / \(max(total, 1))")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
             }
-            ProgressView(value: Double(reviewed), total: Double(max(total, 1)))
-                .tint(RecallTheme.accent)
+            ProgressView(value: Double(reviewed), total: Double(max(total, 1))).tint(RecallTheme.accent)
 
             RecallCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Text(revealed ? "ANSWER" : "QUESTION")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(RecallTheme.accent)
-                            .tracking(1)
+                            .font(.caption.weight(.bold)).foregroundStyle(RecallTheme.accent).tracking(1)
                         Spacer()
-                        Text(card.state.uppercased())
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        Text(card.state.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
@@ -72,38 +62,22 @@ struct ReviewView: View {
                                 } placeholder: { ProgressView() }
                             }
                             Text(displayText(for: card))
-                                .font(.title2.bold())
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
+                                .font(.title2.bold()).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
                         }
                     }
-                    if !revealed {
-                        Text("Tap to reveal the answer")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                    if !revealed { Text("Tap to reveal the answer").font(.subheadline).foregroundStyle(.secondary) }
                 }
             }
             .frame(maxWidth: 760, maxHeight: .infinity)
             .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.snappy(duration: 0.25)) { revealed = true }
-            }
+            .onTapGesture { withAnimation(.snappy(duration: 0.25)) { revealed = true } }
 
-            if revealed && card.hint.isEmpty == false {
-                Text("Hint: \(card.hint)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: 760, alignment: .leading)
+            if revealed && !card.hint.isEmpty {
+                Text("Hint: \(card.hint)").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: 760, alignment: .leading)
             }
-
             if revealed && card.typeInAnswer { typeIn(card) }
             else if revealed { ratings }
-            else {
-                Text("How well did you remember it?")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            else { Text("How well did you remember it?").font(.caption).foregroundStyle(.secondary) }
         }
         .padding()
     }
@@ -114,55 +88,40 @@ struct ReviewView: View {
             RatingButton(title: "Hard", value: 1, action: rate)
             RatingButton(title: "Good", value: 2, action: rate)
             RatingButton(title: "Easy", value: 3, action: rate)
-        }
-        .frame(maxWidth: 760)
+        }.frame(maxWidth: 760)
     }
 
     private func typeIn(_ card: Flashcard) -> some View {
         VStack(spacing: 10) {
             TextField("Type your answer", text: $typed)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .onSubmit(checkTyped)
+                .textFieldStyle(.roundedBorder).textInputAutocapitalization(.never).autocorrectionDisabled().onSubmit(checkTyped)
             if let typeChecked {
                 Text(typeChecked ? "✓ Correct" : "✗ Answer: \(card.answer)")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(typeChecked ? .green : .red)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(typeChecked ? .green : .red)
             }
-            Button("Check", action: checkTyped)
-                .buttonStyle(.borderedProminent)
+            Button("Check", action: checkTyped).buttonStyle(.borderedProminent)
             if typeChecked != nil { ratings }
-        }
-        .frame(maxWidth: 760)
+        }.frame(maxWidth: 760)
     }
 
     private var completionView: some View {
         VStack(spacing: 18) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(RecallTheme.accent)
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent)
             Text("Session complete").font(.largeTitle.bold())
-            Text("\(reviewed) card\(reviewed == 1 ? "" : "s") reviewed · nice work")
-                .foregroundStyle(.secondary)
-            Button("Study again") { restart() }.buttonStyle(.borderedProminent)
+            Text("\(reviewed) card\(reviewed == 1 ? "" : "s") reviewed · nice work").foregroundStyle(.secondary)
+            Button("Study again", action: restart).buttonStyle(.borderedProminent)
             Button("Done") { dismiss() }.buttonStyle(.bordered)
-        }
-        .padding(32)
+        }.padding(32)
     }
 
     private var emptyView: some View {
         VStack(spacing: 14) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(RecallTheme.accent)
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 60)).foregroundStyle(RecallTheme.accent)
             Text("Nothing due right now").font(.title.bold())
             Text("All caught up. Your next reviews will appear here when they are due.")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
-        }
-        .padding(32)
+        }.padding(32)
     }
 
     private func initializeIfNeeded() {
@@ -173,7 +132,8 @@ struct ReviewView: View {
             initial = scoped
         } else {
             let due = scoped.filter { !$0.isNew && $0.isDue }
-            let fresh = scoped.filter(\.isNew).prefix(deck?.newRemainingToday ?? scoped.count)
+            let freshLimit = deck?.newRemainingToday ?? scoped.count
+            let fresh = Array(scoped.filter(\.isNew).prefix(freshLimit))
             initial = due + fresh
         }
         queue = initial
@@ -207,14 +167,7 @@ struct ReviewView: View {
 
     private func rate(_ grade: Int) {
         guard let card = queue.first else { return }
-        let result = SpacedRepetitionService.schedule(
-            state: card.state,
-            step: card.step,
-            repetitions: card.repetitions,
-            interval: card.interval,
-            ease: card.ease,
-            grade: grade
-        )
+        let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade)
         card.state = result.state
         card.step = result.step
         card.repetitions = result.repetitions
@@ -231,7 +184,6 @@ struct ReviewView: View {
         }
         modelContext.insert(ReviewLog(rating: grade + 1, card: card))
         try? modelContext.save()
-
         reviewed += 1
         let current = queue.removeFirst()
         if grade == 0 { queue.append(current) }
@@ -246,11 +198,8 @@ private struct RatingButton: View {
     let title: String
     let value: Int
     let action: (Int) -> Void
-
     var body: some View {
         Button(title) { action(value) }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .frame(maxWidth: .infinity)
+            .buttonStyle(.borderedProminent).controlSize(.small).frame(maxWidth: .infinity)
     }
 }

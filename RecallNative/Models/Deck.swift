@@ -16,4 +16,7 @@ final class Deck {
         self.createdAt = .now
         self.cards = []
     }
+
+    var dueCount: Int { cards.filter { $0.dueAt <= .now }.count }
+    var masteredCount: Int { cards.filter { $0.repetitions >= 3 && $0.ease >= 2.5 }.count }
 }

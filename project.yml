@@ -3,6 +3,10 @@ options:
   bundleIdPrefix: com.recalllabs
   deploymentTarget:
     iOS: "18.0"
+packages:
+  RecallOnDeviceAI:
+    url: https://github.com/rorshopping/recall-ondevice-ai.git
+    branch: master
 targets:
   RecallNative:
     type: application
@@ -14,7 +18,9 @@ targets:
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_CFBundleDisplayName: Recall Native
       INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-    dependencies: []
+    dependencies:
+      - package: RecallOnDeviceAI
+        product: RecallLiteRT
   RecallNativeTests:
     type: bundle.unit-test
     platform: iOS

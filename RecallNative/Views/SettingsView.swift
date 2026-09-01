@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import StoreKit
+import LocalAuthentication
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -10,7 +11,9 @@ struct SettingsView: View {
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("dailyGoal") private var dailyGoal = 20
     @AppStorage("iCloudEnabled") private var iCloudEnabled = false
+    @AppStorage(BiometricLockService.enabledKey) private var biometricEnabled = false
     @StateObject private var subscriptions = SubscriptionService()
+    @StateObject private var biometricLock = BiometricLockService()
     @State private var showingImporter = false
     @State private var backupURL: URL?
     @State private var showingShare = false
@@ -25,6 +28,7 @@ struct SettingsView: View {
     @State private var errorMessage: String?
     @State private var iCloudAvailable: Bool?
     @State private var lastSync: Date?
+    @State private var showingBiometricUnavailable = false
     private let iCloud = ICloudSyncService()
 
     private let companyName = "Richard Bäcker"
@@ -47,6 +51,26 @@ struct SettingsView: View {
                     Toggle("Haptic feedback", isOn: $hapticsEnabled)
                     Text("Slight feedback helps confirm Good and Easy grades. Turn it off for silent study.")
                         .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section("Security") {
+                    if biometricLock.available {
+                        Toggle(isOn: Binding(
+                            get: { biometricEnabled },
+                            set: { value in
+                                Task { await toggleBiometricLock(value) }
+                            }
+                        )) {
+                            Label("Require Face ID", systemImage: "faceid")
+                        }
+                        Text("Require Face ID or your device passcode when reopening Recall after a short background period.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Label("Face ID / Touch ID unavailable", systemImage: "faceid")
+                            .foregroundStyle(.secondary)
+                        Text("Set up Face ID or Touch ID in iOS Settings to protect your memories with an app lock.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("Account & Premium") {
@@ -125,7 +149,12 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .task { iCloudAvailable = iCloud.isAvailable(); lastSync = iCloud.lastSyncDate(); await subscriptions.load() }
+            .task {
+                biometricLock.refreshAvailability()
+                iCloudAvailable = iCloud.isAvailable()
+                lastSync = iCloud.lastSyncDate()
+                await subscriptions.load()
+            }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { prepareImport($0) }
             .sheet(isPresented: $showingShare) {
                 if let backupURL { ShareLink(item: backupURL) { Label("Share backup", systemImage: "square.and.arrow.up") }.padding(40) }
@@ -138,6 +167,11 @@ struct SettingsView: View {
             .alert("Settings error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK") { errorMessage = nil }
             } message: { Text(errorMessage ?? "") }
+            .alert("Face ID / Touch ID unavailable", isPresented: $showingBiometricUnavailable) {
+                Button("OK") {}
+            } message: {
+                Text("Set up Face ID or Touch ID in iOS Settings before enabling the app lock.")
+            }
             .confirmationDialog("Import this backup?", isPresented: $showingImportConfirmation, titleVisibility: .visible) {
                 Button("Import and Replace", role: .destructive) { performPendingImport() }
                 Button("Cancel", role: .cancel) { pendingImportData = nil }
@@ -148,6 +182,20 @@ struct SettingsView: View {
                 Button("Delete Everything", role: .destructive) { resetData() }
                 Button("Cancel", role: .cancel) {}
             }
+        }
+    }
+
+    private func toggleBiometricLock(_ enabled: Bool) async {
+        if enabled {
+            guard biometricLock.available else {
+                showingBiometricUnavailable = true
+                return
+            }
+            guard await biometricLock.confirmEnable() else { return }
+            biometricEnabled = true
+        } else {
+            biometricLock.setEnabled(false)
+            biometricEnabled = false
         }
     }
 

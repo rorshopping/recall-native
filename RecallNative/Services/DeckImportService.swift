@@ -26,7 +26,17 @@ enum DeckImportService {
         let deck = Deck(name: parsed.name, emoji: "📚")
         context.insert(deck)
         for item in parsed.cards {
-            context.insert(Flashcard(question: item.front.trimmingCharacters(in: .whitespacesAndNewlines), answer: item.back.trimmingCharacters(in: .whitespacesAndNewlines), deck: deck))
+            let question = item.front.trimmingCharacters(in: .whitespacesAndNewlines)
+            let answer = item.back.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hint = item.hint?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let tags = item.tags?.trimmingCharacters(in: .whitespacesAndNewlines)
+            context.insert(Flashcard(
+                question: question,
+                answer: answer,
+                hint: hint?.isEmpty == true ? nil : hint,
+                tags: tags?.isEmpty == true ? nil : tags,
+                deck: deck
+            ))
         }
         try context.save()
         return deck

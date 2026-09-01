@@ -21,7 +21,7 @@ struct StatsView: View {
         return Int((maturity / Double(cards.count) * 100).rounded())
     }
     private var week: [(String, Int)] {
-        (6...0).reversed().compactMap { offset in
+        stride(from: 6, through: 0, by: -1).compactMap { offset in
             guard let date = calendar.date(byAdding: .day, value: -offset, to: .now) else { return nil }
             return (date.formatted(.dateTime.weekday(.abbreviated)), reviews.filter { calendar.isDate($0.reviewedAt, inSameDayAs: date) }.count)
         }

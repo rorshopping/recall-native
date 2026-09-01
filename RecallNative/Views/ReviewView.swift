@@ -9,7 +9,12 @@ import UIKit
 final class ReviewAudioController: ObservableObject {
     @Published private(set) var isPlaying = false
     private var player: AVPlayer?
-    private var endObserver: NSObjectProtocol?
+    // `nonisolated(unsafe)` because Swift 6 makes actor-class `deinit`
+    // nonisolated; without this, the synchronous teardown in `deinit` can't
+    // reach the observer token. The token is written exactly once via
+    // `addObserver` and cleared exactly once via `removeObserver`/deinit, so
+    // there are no concurrent reads in practice.
+    nonisolated(unsafe) private var endObserver: NSObjectProtocol?
 
     func toggle(url: URL) {
         if isPlaying {

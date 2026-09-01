@@ -27,16 +27,16 @@ final class Flashcard {
     var lastReviewedAt: Date?
     var deck: Deck?
 
-    init(question: String, answer: String, deck: Deck? = nil) {
+    convenience init(question: String, answer: String, deck: Deck? = nil) {
         self.init(question: question, answer: answer, hint: "", tags: "", deck: deck)
     }
 
-    init(question: String, answer: String, hint: String, tags: String, deck: Deck? = nil) {
+    init(question: String, answer: String, hint: String?, tags: String?, deck: Deck? = nil) {
         self.id = UUID()
         self.question = question
         self.answer = answer
-        self.hint = hint
-        self.tags = tags
+        self.hint = hint ?? ""
+        self.tags = tags ?? ""
         self.type = "basic"
         self.typeInAnswer = false
         self.mediaType = nil

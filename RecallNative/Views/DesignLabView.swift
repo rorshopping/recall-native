@@ -10,6 +10,35 @@ struct DesignLabView: View {
         ("minimal", "Minimal", "Pure and restrained", "circle"),
         ("contrast", "Contrast", "High-energy study", "bolt.fill")
     ]
+
+    private struct ThemeButtonLabel: View {
+        let icon: String
+        let name: String
+        let tagline: String
+        let isSelected: Bool
+
+        var body: some View {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .frame(width: 28)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(RecallTheme.accent) : AnyShapeStyle(.secondary))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name).font(.headline).foregroundStyle(.primary)
+                    Text(tagline).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? AnyShapeStyle(RecallTheme.accent) : AnyShapeStyle(.tertiary))
+            }
+            .padding(16)
+            .background(RecallTheme.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isSelected ? AnyShapeStyle(RecallTheme.accent) : AnyShapeStyle(.quaternary), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -34,18 +63,12 @@ struct DesignLabView: View {
                     Text("THEMES").font(.caption.weight(.bold)).tracking(1.1).foregroundStyle(.secondary)
                     ForEach(themes, id: \.id) { theme in
                         Button { designTheme = theme.id } label: {
-                            HStack(spacing: 14) {
-                                Image(systemName: theme.icon).frame(width: 28).foregroundStyle(theme.id == designTheme ? RecallTheme.accent : .secondary)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(theme.name).font(.headline).foregroundStyle(.primary)
-                                    Text(theme.tagline).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: theme.id == designTheme ? "checkmark.circle.fill" : "circle").foregroundStyle(theme.id == designTheme ? RecallTheme.accent : .tertiary)
-                            }
-                            .padding(16)
-                            .background(RecallTheme.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(theme.id == designTheme ? RecallTheme.accent : .quaternary, lineWidth: theme.id == designTheme ? 2 : 1))
+                            ThemeButtonLabel(
+                                icon: theme.icon,
+                                name: theme.name,
+                                tagline: theme.tagline,
+                                isSelected: theme.id == designTheme
+                            )
                         }.buttonStyle(.plain)
                     }
                     RecallCard {

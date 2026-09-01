@@ -5,9 +5,17 @@ private enum RecallTab: Hashable {
     case home, decks, create, stats, settings
 }
 
+/// `URL` is not `Identifiable`, but `sheet(item:)` needs an `Identifiable`
+/// item. This wrapper is the smallest adapter that lets `RootView` present
+/// `ImportLinkView` only when an import URL is non-nil.
+struct ImportURLItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 struct RootView: View {
     @State private var selectedTab: RecallTab = .home
-    @State private var importURL: URL?
+    @State private var importURL: ImportURLItem?
     @State private var showingDesignLab = false
     @State private var showingHomeReview = false
     @State private var lockState: LockState = .checking
@@ -68,9 +76,9 @@ struct RootView: View {
         }
         .onOpenURL { url in
             guard ["recall", "recall-flashcards"].contains(url.scheme?.lowercased()), url.host?.lowercased() == "import" else { return }
-            importURL = url
+            importURL = ImportURLItem(url: url)
         }
-        .sheet(item: $importURL) { url in ImportLinkView(url: url) }
+        .sheet(item: $importURL) { item in ImportLinkView(url: item.url) }
         .sheet(isPresented: $showingDesignLab) { DesignLabView() }
         .fullScreenCover(isPresented: $showingHomeReview) { ReviewView() }
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in

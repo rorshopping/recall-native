@@ -7,18 +7,18 @@ struct ImportLinkView: View {
     @Query private var decks: [Deck]
     @StateObject private var subscriptions = SubscriptionService()
     let url: URL
-    @State private var state: State = .confirm
+    @State private var phase: Phase = .confirm
     @State private var error = ""
     @State private var importedName = ""
     @State private var importedCount = 0
     @State private var showingPaywall = false
 
-    enum State { case confirm, loading, done, failed }
+    enum Phase { case confirm, loading, done, failed }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 18) {
-                switch state {
+                switch phase {
                 case .confirm:
                     Image(systemName: "square.and.arrow.down").font(.system(size: 42)).foregroundStyle(RecallTheme.accent)
                     Text("Import this deck?").font(.title2.bold())
@@ -58,6 +58,7 @@ struct ImportLinkView: View {
 
     @MainActor
     private func importDeck() async {
+        phase = .loading
         do {
             let data = try await loadData()
             let parsed = try DeckImportService.parse(data)
@@ -70,7 +71,7 @@ struct ImportLinkView: View {
                 showingPaywall = true
                 return
             }
-            state = .loading
+            phase = .loading
             let deck = Deck(name: parsed.name, emoji: "📚")
             modelContext.insert(deck)
             for card in parsed.cards {
@@ -86,10 +87,10 @@ struct ImportLinkView: View {
             try modelContext.save()
             importedName = parsed.name
             importedCount = parsed.cards.count
-            state = .done
+            phase = .done
         } catch {
-            error = error.localizedDescription
-            state = .failed
+            self.error = error.localizedDescription
+            phase = .failed
         }
     }
 

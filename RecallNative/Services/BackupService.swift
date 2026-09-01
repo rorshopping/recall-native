@@ -21,7 +21,9 @@ enum BackupService {
             guard let deckID = card.deck?.id else { return nil }
             return .init(id: card.id, question: card.question, answer: card.answer, hint: card.hint, tags: card.tags, type: card.type, typeInAnswer: card.typeInAnswer, mediaType: card.mediaType, mediaURI: card.mediaURI, createdAt: card.createdAt, dueAt: card.dueAt, interval: card.interval, ease: card.ease, repetitions: card.repetitions, state: card.state, step: card.step, lapses: card.lapses, againCount: card.againCount, hardCount: card.hardCount, goodCount: card.goodCount, easyCount: card.easyCount, lastReviewedAt: card.lastReviewedAt, deckID: deckID)
         }
-        let reviews = try context.fetch(FetchDescriptor<ReviewLog>()).map { ReviewLogRecord($0) }
+        let reviews = try context.fetch(FetchDescriptor<ReviewLog>()).map { log in
+            RecallBackup.ReviewRecord(id: log.id, reviewedAt: log.reviewedAt, rating: log.rating, cardID: log.card?.id)
+        }
         let backup = RecallBackup(version: 1, exportedAt: .now, decks: decks, cards: cards, reviews: reviews)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(backup)
@@ -70,8 +72,7 @@ enum BackupService {
         try context.save()
     }
 
-    private struct ReviewLogRecord: Codable { let id: UUID; let reviewedAt: Date; let rating: Int; let cardID: UUID?; init(_ log: ReviewLog) { id = log.id; reviewedAt = log.reviewedAt; rating = log.rating; cardID = log.card?.id } }
-    enum BackupError: LocalizedError {
+enum BackupError: LocalizedError {
         case unsupportedVersion, invalidSize, duplicateIDs, orphanedCards, orphanedReviews, idCollision
         var errorDescription: String? { switch self {
         case .unsupportedVersion: return "This backup was created by an unsupported Recall version."

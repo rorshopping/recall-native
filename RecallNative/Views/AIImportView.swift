@@ -96,7 +96,7 @@ Rules:
             let deck = Deck(name: parsed.name, emoji: "📚")
             modelContext.insert(deck)
             for card in parsed.cards {
-                modelContext.insert(Flashcard(question: card.front.trimmingCharacters(in: .whitespacesAndNewlines), answer: card.back.trimmingCharacters(in: .whitespacesAndNewlines), hint: card.hint, tags: card.tags, deck: deck))
+                modelContext.insert(Flashcard(question: card.front.trimmingCharacters(in: .whitespacesAndNewlines), answer: card.back.trimmingCharacters(in: .whitespacesAndNewlines), hint: card.hint ?? "", tags: card.tags ?? "", deck: deck))
             }
             try modelContext.save()
             importedName = parsed.name

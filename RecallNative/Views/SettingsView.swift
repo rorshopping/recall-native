@@ -215,7 +215,7 @@ struct SettingsView: View {
     private func syncNow() {
         guard iCloudEnabled else { return }
         do {
-            if try iCloud.push(context: modelContext) { iCloud.markSynced(); lastSync = iCloud.lastSyncDate() }
+            if try iCloud.push(context: modelContext) { lastSync = iCloud.lastSyncDate() }
             else { errorMessage = "iCloud is unavailable on this device." }
         } catch { errorMessage = error.localizedDescription }
     }

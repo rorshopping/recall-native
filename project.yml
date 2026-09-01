@@ -1,0 +1,23 @@
+name: RecallNative
+options:
+  bundleIdPrefix: com.recalllabs
+  deploymentTarget:
+    iOS: "18.0"
+targets:
+  RecallNative:
+    type: application
+    platform: iOS
+    sources: [RecallNative]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.recalllabs.recallnative
+      SWIFT_VERSION: 6.0
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_CFBundleDisplayName: Recall Native
+      INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+    dependencies: []
+  RecallNativeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [RecallNativeTests]
+    dependencies:
+      - target: RecallNative

@@ -1,0 +1,51 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# XcodeGen output is generated from project.yml — keep xcodeproj directory placeholder only
+# (RecallNative.xcodeproj/ is intentionally tracked as an empty directory with .gitkeep)
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods (not used, but defensive)
+Pods/
+
+# Carthage (not used, but defensive)
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Secrets — never commit
+*.p12
+*.cer
+*.mobileprovision
+*.p8
+*.p7
+AuthKey_*.p8
+ExportOptions.plist
+
+# Logs
+*.log

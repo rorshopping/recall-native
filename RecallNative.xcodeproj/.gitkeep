@@ -1,0 +1,4 @@
+# This directory is intentionally empty in the repo.
+# RecallNative.xcodeproj is generated from project.yml via XcodeGen:
+#   brew install xcodegen
+#   xcodegen generate

@@ -10,8 +10,11 @@ private enum CreateMode: String, CaseIterable, Identifiable {
 
 struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query private var decks: [Deck]
+    @StateObject private var subscriptions = SubscriptionService()
     @State private var showingImporter = false
     @State private var showingSave = false
+    @State private var showingPaywall = false
     @State private var sourceText = ""
     @State private var sourceName = ""
     @State private var deckName = ""
@@ -70,27 +73,29 @@ struct CreateView: View {
                     }
                     Button { generate() } label: { Label(isGenerating ? "Generating..." : mode == .flashcards ? "Create flashcards" : "Generate \(mode.rawValue)", systemImage: mode.icon).frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!canGenerate || isGenerating)
                     if isGenerating { RecallCard { HStack(spacing: 12) { ProgressView(); VStack(alignment: .leading) { Text("Running on device").font(.headline); Text("Gemma 4 is generating your result.").font(.caption).foregroundStyle(.secondary) } } } }
-                    if !generated.isEmpty { FlashcardResult(cards: generated, save: { deckName = deckName.isEmpty ? suggestedDeckName : deckName; showingSave = true }, dismiss: { generated = [] }) }
+                    if !generated.isEmpty { FlashcardResult(cards: generated, save: { if canSaveGenerated { deckName = deckName.isEmpty ? suggestedDeckName : deckName; showingSave = true } else { showingPaywall = true } }, dismiss: { generated = [] }) }
                     if let resultObject, generated.isEmpty { AdvancedResult(mode: mode, data: resultObject, dismiss: { self.resultObject = nil }) }
                     if !isGenerating { Text("🔒 Everything runs on device").font(.caption.weight(.semibold)).frame(maxWidth: .infinity).foregroundStyle(.secondary); Text("Nothing leaves your iPhone. Outputs may be inaccurate, so verify against your source.").font(.caption2).frame(maxWidth: .infinity).foregroundStyle(.tertiary).multilineTextAlignment(.center) }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding()
             }
             .background(RecallTheme.canvas).navigationTitle("Create").navigationBarTitleDisplayMode(.inline)
-            .task { modelAvailable = await modelStore.modelURL() != nil }
+            .task { modelAvailable = await modelStore.modelURL() != nil; await subscriptions.load() }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { handleImport($0) }
             .sheet(isPresented: $showingSave) { SaveDeckSheet(name: $deckName) { saveGeneratedCards() } }
+            .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .alert("Couldn’t generate", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") { errorMessage = nil } } message: { Text(errorMessage ?? "") }
         }
     }
 
     private var canGenerate: Bool { guard modelAvailable, !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }; if mode == .ask { return !askInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; if mode == .explain { return !explainInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; return true }
+    private var canSaveGenerated: Bool { EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) && (subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck) }
     private var suggestedDeckName: String { let words = sourceText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").prefix(5).joined(separator: " "); return words.isEmpty ? "New deck" : words.capitalized }
     private func downloadModel() { guard !isDownloadingModel else { return }; isDownloadingModel = true; downloadProgress = .init(fraction: 0, bytesWritten: 0, totalBytes: 0); Task { do { _ = try await modelStore.downloadModel { p in Task { @MainActor in downloadProgress = p } }; await MainActor.run { modelAvailable = true; isDownloadingModel = false } } catch { await MainActor.run { errorMessage = error.localizedDescription; isDownloadingModel = false } } } }
     private func handleImport(_ result: Result<[URL], Error>) { guard case .success(let urls) = result, let url = urls.first else { return }; do { sourceText = try importer.extractText(from: url); sourceName = url.deletingPathExtension().lastPathComponent; mode = .flashcards } catch { errorMessage = error.localizedDescription } }
     private func generate() { guard !isGenerating else { return }; isGenerating = true; generated = []; resultObject = nil; Task { @MainActor in do { if mode == .flashcards { generated = try await ai.generateFlashcards(from: sourceText) } else { let data = try await advancedAI.generateJSON(instruction: instruction, systemPrompt: prompt, source: sourceText); guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIServiceError.generationFailed("Gemma 4 returned an invalid result.") }; resultObject = object } } catch { errorMessage = error.localizedDescription }; isGenerating = false } }
     private var instruction: String { switch mode { case .guide: return "Create a concise study guide."; case .exam: return "Create a 10-question practice exam."; case .ask: return "Answer this question: \(askInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .explain: return "Explain this concept simply: \(explainInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .flashcards: return "Create flashcards." } }
     private var prompt: String { switch mode { case .guide: return "Return ONLY JSON: {\"title\":\"Study guide title\",\"overview\":\"2-4 sentence overview\",\"sections\":[{\"title\":\"Section\",\"summary\":\"Summary\",\"keyPoints\":[\"Point\"],\"keyTerms\":[{\"term\":\"Term\",\"definition\":\"Definition\"}]}],\"takeaways\":[\"Takeaway\"]}. Use 3-8 sections. Every factual claim must be supported by the source. Do not invent facts."; case .exam: return "Return ONLY JSON: {\"title\":\"Practice exam\",\"instructions\":\"Short instructions\",\"questions\":[{\"question\":\"Question\",\"type\":\"multiple_choice\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctIndex\":0,\"answer\":\"Answer\",\"explanation\":\"Explanation\"}]}. Create 10 questions, mixing multiple choice, true/false and short answer."; case .ask: return "Return ONLY JSON: {\"answer\":\"Concise answer\",\"citations\":[\"Supporting fact\"]}. Use only the supplied material. If absent, say you could not find it."; case .explain: return "Return ONLY JSON: {\"concept\":\"Concept\",\"explanation\":\"Simple explanation\",\"analogy\":\"Optional analogy\",\"keyPoints\":[\"Point\"]}. Use plain language and the supplied material."; case .flashcards: return "" } }
-    private func saveGeneratedCards() { let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName); modelContext.insert(deck); generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }; generated = []; sourceText = ""; sourceName = ""; deckName = ""; showingSave = false }
+    private func saveGeneratedCards() { guard canSaveGenerated else { showingSave = false; showingPaywall = true; return }; let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName); modelContext.insert(deck); generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }; try? modelContext.save(); generated = []; sourceText = ""; sourceName = ""; deckName = ""; showingSave = false }
     private func formatBytes(_ bytes: Int64) -> String { ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) }
 }
 

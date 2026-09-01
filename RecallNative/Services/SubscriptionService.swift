@@ -26,8 +26,7 @@ final class SubscriptionService: ObservableObject {
     deinit { updatesTask?.cancel() }
 
     func load() async {
-        products = (try? await Product.products(for: Array(productIDs)))?
-            .sorted { $0.price < $1.price } ?? []
+        products = (try? await Product.products(for: Array(productIDs)))?.sorted { $0.price < $1.price } ?? []
         await refreshEntitlements()
     }
 
@@ -58,6 +57,8 @@ final class SubscriptionService: ObservableObject {
             purchaseError = error.localizedDescription
         }
     }
+
+    func clearError() { purchaseError = nil }
 
     private func refreshEntitlements() async {
         var premium = false

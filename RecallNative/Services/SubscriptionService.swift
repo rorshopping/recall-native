@@ -1,24 +1,61 @@
 import Foundation
 import StoreKit
+import Combine
 
 @MainActor
 final class SubscriptionService: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var isPremium = false
+    @Published private(set) var purchaseError: String?
 
-    private let productIDs = ["recall.premium.monthly", "recall.premium.yearly"]
+    private let productIDs: Set<String> = ["recall.premium.monthly", "recall.premium.yearly"]
+    private var updatesTask: Task<Void, Never>?
+
+    init() {
+        updatesTask = Task { [weak self] in
+            for await update in Transaction.updates {
+                guard let self else { return }
+                if case .verified(let transaction) = update {
+                    await transaction.finish()
+                    await refreshEntitlements()
+                }
+            }
+        }
+    }
+
+    deinit { updatesTask?.cancel() }
 
     func load() async {
-        products = (try? await Product.products(for: productIDs)) ?? []
+        products = (try? await Product.products(for: Array(productIDs)))?
+            .sorted { $0.price < $1.price } ?? []
         await refreshEntitlements()
     }
 
-    func purchase(_ product: Product) async throws {
-        let result = try await product.purchase()
-        if case .success(let verification) = result {
-            let transaction = try checkVerified(verification)
-            await transaction.finish()
+    func purchase(_ product: Product) async {
+        purchaseError = nil
+        do {
+            switch try await product.purchase() {
+            case .success(let verification):
+                let transaction = try checkVerified(verification)
+                await transaction.finish()
+                await refreshEntitlements()
+            case .userCancelled, .pending:
+                break
+            @unknown default:
+                break
+            }
+        } catch {
+            purchaseError = error.localizedDescription
+        }
+    }
+
+    func restore() async {
+        purchaseError = nil
+        do {
+            try await AppStore.sync()
             await refreshEntitlements()
+        } catch {
+            purchaseError = error.localizedDescription
         }
     }
 
@@ -39,5 +76,8 @@ final class SubscriptionService: ObservableObject {
         }
     }
 
-    enum StoreError: Error { case unverified }
+    enum StoreError: LocalizedError {
+        case unverified
+        var errorDescription: String? { "The App Store could not verify this purchase." }
+    }
 }

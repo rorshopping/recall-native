@@ -4,11 +4,14 @@ import SwiftData
 struct ImportLinkView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query private var decks: [Deck]
+    @StateObject private var subscriptions = SubscriptionService()
     let url: URL
     @State private var state: State = .confirm
     @State private var error = ""
     @State private var importedName = ""
     @State private var importedCount = 0
+    @State private var showingPaywall = false
 
     enum State { case confirm, loading, done, failed }
 
@@ -41,6 +44,8 @@ struct ImportLinkView: View {
             .frame(maxWidth: 560).frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Import")
             .navigationBarTitleDisplayMode(.inline)
+            .task { await subscriptions.load() }
+            .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
         }
     }
 
@@ -53,10 +58,19 @@ struct ImportLinkView: View {
 
     @MainActor
     private func importDeck() async {
-        state = .loading
         do {
             let data = try await loadData()
             let parsed = try DeckImportService.parse(data)
+            guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else {
+                showingPaywall = true
+                return
+            }
+            if !subscriptions.isPremium && parsed.cards.count > EntitlementRules.freeCardLimitPerDeck {
+                error = "The free plan supports up to \(EntitlementRules.freeCardLimitPerDeck) cards per deck. Unlock Recall Full to import this deck."
+                showingPaywall = true
+                return
+            }
+            state = .loading
             let deck = Deck(name: parsed.name, emoji: "📚")
             modelContext.insert(deck)
             for card in parsed.cards {

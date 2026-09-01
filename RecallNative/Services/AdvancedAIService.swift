@@ -8,12 +8,36 @@ struct AdvancedAIService: Sendable {
         let material = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard material.count >= 20 else { throw AIServiceError.insufficientContent }
         guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
-        do {
-            let engine = RecallLiteRTEngine(modelPath: modelURL.path)
-            let raw = try await engine.generateDeckJSON(topic: instruction + "\n\n" + material, systemPrompt: systemPrompt + "\n\nSOURCE MATERIAL:\n" + material + "\n\nTASK:\n" + instruction)
-            return try normalizedJSONData(raw)
-        } catch let error as AIServiceError { throw error }
-        catch { throw AIServiceError.generationFailed("Gemma 4 could not generate content: \(error.localizedDescription)") }
+
+        let topic = instruction + "\n\n" + material
+        let prompt = systemPrompt + "\n\nSOURCE MATERIAL:\n" + material + "\n\nTASK:\n" + instruction
+        let engine = RecallLiteRTEngine(modelPath: modelURL.path)
+
+        // Local models occasionally wrap JSON in prose or return one malformed
+        // escape. Match Recall's one-retry behavior instead of making the user
+        // regenerate manually.
+        var lastJSONError: Error?
+        for attempt in 0..<2 {
+            do {
+                let raw = try await engine.generateDeckJSON(
+                    topic: attempt == 0 ? topic : topic + "\n\nReturn ONLY valid JSON. Do not include markdown, prose, or code fences.",
+                    systemPrompt: attempt == 0 ? prompt : prompt + "\n\nIMPORTANT: Your previous response was not valid JSON. Retry and output only valid JSON matching the requested schema."
+                )
+                do {
+                    return try normalizedJSONData(raw)
+                } catch {
+                    lastJSONError = error
+                    if attempt == 1 { throw error }
+                }
+            } catch let error as AIServiceError {
+                throw error
+            } catch {
+                if attempt == 1 {
+                    throw AIServiceError.generationFailed("Gemma 4 could not generate valid content: \(error.localizedDescription)")
+                }
+            }
+        }
+        throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON: \(lastJSONError?.localizedDescription ?? "Please try again.")")
     }
 
     private func normalizedJSONData(_ raw: String) throws -> Data {

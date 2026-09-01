@@ -24,4 +24,12 @@ final class Flashcard {
         self.repetitions = 0
         self.deck = deck
     }
+
+    var isNew: Bool { repetitions == 0 }
+    var isDue: Bool { dueAt <= .now }
+    var statusTitle: String {
+        if isNew { return "New" }
+        if dueAt <= .now { return "Due now" }
+        return "Due \(dueAt.formatted(date: .abbreviated, time: .omitted))"
+    }
 }

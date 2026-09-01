@@ -6,7 +6,9 @@ struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingImporter = false
     @State private var showingText = false
+    @State private var showingSave = false
     @State private var sourceText = ""
+    @State private var deckName = ""
     @State private var isGenerating = false
     @State private var generated: [GeneratedCard] = []
     @State private var errorMessage: String?
@@ -16,63 +18,117 @@ struct CreateView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Create")
-                        .font(.largeTitle.bold())
-                    Text("Give Recall something worth remembering.")
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Create")
+                            .font(.largeTitle.bold())
+                        Text("Turn anything you are learning into a focused review set.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
 
                     Button { showingText = true } label: {
-                        CreateAction(icon: "text.alignleft", title: "Paste notes", subtitle: "Turn your notes into flashcards")
+                        CreateAction(icon: "text.alignleft", title: "Paste notes", subtitle: "Best for articles, lectures, and notes")
                     }
                     .buttonStyle(.plain)
 
                     Button { showingImporter = true } label: {
-                        CreateAction(icon: "doc.richtext", title: "Import PDF", subtitle: "Up to 5 pages for on-device generation")
+                        CreateAction(icon: "doc.richtext", title: "Import PDF", subtitle: "Up to 5 pages, processed on device")
                     }
                     .buttonStyle(.plain)
 
                     if isGenerating {
-                        ProgressView("Generating cards…")
-                            .frame(maxWidth: .infinity)
-                            .padding()
+                        RecallCard {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Creating your cards")
+                                        .font(.headline)
+                                    Text("This stays on your device.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
 
                     if !generated.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Preview").font(.title3.bold())
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Ready to review")
+                                    .font(.title3.bold())
+                                Spacer()
+                                Text("\(generated.count) cards")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                            }
+
                             ForEach(generated) { card in
                                 RecallCard {
                                     Text(card.question).font(.headline)
-                                    Text(card.answer).foregroundStyle(.secondary).padding(.top, 4)
+                                    Divider().padding(.vertical, 6)
+                                    Text(card.answer).foregroundStyle(.secondary)
                                 }
                             }
+
+                            Button {
+                                deckName = deckName.isEmpty ? suggestedDeckName : deckName
+                                showingSave = true
+                            } label: {
+                                Label("Save to library", systemImage: "square.and.arrow.down.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
                         }
                     }
                 }
                 .padding()
             }
             .background(RecallTheme.canvas)
+            .navigationTitle("Create")
+            .navigationBarTitleDisplayMode(.inline)
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { result in
                 handleImport(result)
             }
             .sheet(isPresented: $showingText) {
                 NavigationStack {
                     TextEditor(text: $sourceText)
-                        .padding()
+                        .font(.body)
+                        .padding(.horizontal, 8)
                         .navigationTitle("Paste notes")
+                        .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") { showingText = false }
+                            }
                             ToolbarItem(placement: .confirmationAction) {
-                                Button("Generate") { showingText = false; generate() }
-                                    .disabled(sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                Button("Generate") {
+                                    showingText = false
+                                    generate()
+                                }
+                                .disabled(sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             }
                         }
                 }
+                .presentationDetents([.large])
             }
-            .alert("Couldn’t create cards", isPresented: .constant(errorMessage != nil)) {
+            .sheet(isPresented: $showingSave) {
+                SaveDeckSheet(name: $deckName) {
+                    saveGeneratedCards()
+                }
+            }
+            .alert("Couldn’t create cards", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK") { errorMessage = nil }
-            } message: { Text(errorMessage ?? "") }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
+    }
+
+    private var suggestedDeckName: String {
+        let first = sourceText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").prefix(5).joined(separator: " ")
+        return first.isEmpty ? "New deck" : first.capitalized
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {
@@ -84,13 +140,27 @@ struct CreateView: View {
     }
 
     private func generate() {
+        guard !isGenerating else { return }
         isGenerating = true
-        Task {
+        generated = []
+        Task { @MainActor in
             do {
                 generated = try await ai.generateFlashcards(from: sourceText)
-            } catch { errorMessage = error.localizedDescription }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
             isGenerating = false
         }
+    }
+
+    private func saveGeneratedCards() {
+        let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName)
+        modelContext.insert(deck)
+        generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, deck: deck)) }
+        generated = []
+        sourceText = ""
+        deckName = ""
+        showingSave = false
     }
 }
 
@@ -98,11 +168,16 @@ private struct CreateAction: View {
     let icon: String
     let title: String
     let subtitle: String
+
     var body: some View {
         RecallCard {
             HStack(spacing: 16) {
-                Image(systemName: icon).font(.title2).frame(width: 46, height: 46).background(RecallTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
-                VStack(alignment: .leading, spacing: 3) {
+                Image(systemName: icon)
+                    .font(.title2.weight(.semibold))
+                    .frame(width: 48, height: 48)
+                    .background(RecallTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(RecallTheme.accent)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.headline)
                     Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
                 }
@@ -110,5 +185,32 @@ private struct CreateAction: View {
                 Image(systemName: "chevron.right").foregroundStyle(.tertiary)
             }
         }
+    }
+}
+
+private struct SaveDeckSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var name: String
+    let save: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Deck") {
+                    TextField("Deck name", text: $name)
+                }
+                Section {
+                    Text("Your generated cards will be saved locally and available in your library.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Save cards")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }

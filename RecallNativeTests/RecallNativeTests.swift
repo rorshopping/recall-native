@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RecallNative
 
@@ -48,5 +49,18 @@ struct RecallNativeTests {
         #expect(card.typeInAnswer == false)
         #expect(card.interval == 0)
         #expect(card.ease == 2.5)
+    }
+
+    @Test func importedDeckPreservesCardMetadata() throws {
+        let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
+        let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let json = #"{"deck":"Biology","cards":[{"front":"Cell","back":"Basic unit of life","hint":"Think smallest living unit","tags":"biology,basics"}]}"#.data(using: .utf8)!
+
+        let deck = try DeckImportService.add(json, to: context)
+        #expect(deck.name == "Biology")
+        #expect(deck.cards.count == 1)
+        #expect(deck.cards.first?.hint == "Think smallest living unit")
+        #expect(deck.cards.first?.tags == "biology,basics")
     }
 }

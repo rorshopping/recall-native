@@ -63,4 +63,16 @@ struct RecallNativeTests {
         #expect(deck.cards.first?.hint == "Think smallest living unit")
         #expect(deck.cards.first?.tags == "biology,basics")
     }
+
+    @Test func freeTierAllowsExactlyOneDeck() {
+        #expect(EntitlementRules.canCreateDeck(isPremium: false, deckCount: 0))
+        #expect(!EntitlementRules.canCreateDeck(isPremium: false, deckCount: 1))
+        #expect(EntitlementRules.canCreateDeck(isPremium: true, deckCount: 100))
+    }
+
+    @Test func freeTierAllowsExactlyFiftyCardsPerDeck() {
+        #expect(EntitlementRules.canCreateCard(isPremium: false, cardCount: 49))
+        #expect(!EntitlementRules.canCreateCard(isPremium: false, cardCount: 50))
+        #expect(EntitlementRules.canCreateCard(isPremium: true, cardCount: 500))
+    }
 }

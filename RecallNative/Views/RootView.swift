@@ -22,11 +22,25 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DecksView().tabItem { Label("Decks", systemImage: "tray.full") }.tag(RecallTab.decks)
-            CreateView().tabItem { Label("Create", systemImage: "sparkles") }.tag(RecallTab.create)
-            StatsView().tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }.tag(RecallTab.stats)
-            SettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(RecallTab.settings)
+            DecksView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Decks", systemImage: "tray.full") }
+                .tag(RecallTab.decks)
+            CreateView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Create", systemImage: "sparkles") }
+                .tag(RecallTab.create)
+            StatsView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(RecallTab.stats)
+            SettingsView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(RecallTab.settings)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .tint(RecallTheme.accent)
         .preferredColorScheme(colorScheme)
         .onOpenURL { url in

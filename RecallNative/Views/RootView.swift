@@ -7,6 +7,15 @@ enum RecallTab: Hashable {
 struct RootView: View {
     @State private var selectedTab: RecallTab = .decks
     @State private var importURL: URL?
+    @AppStorage("appearance") private var appearance = "system"
+
+    private var colorScheme: ColorScheme? {
+        switch appearance {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -16,12 +25,11 @@ struct RootView: View {
             SettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(RecallTab.settings)
         }
         .tint(RecallTheme.accent)
+        .preferredColorScheme(colorScheme)
         .onOpenURL { url in
             guard ["recall", "recall-flashcards"].contains(url.scheme?.lowercased()), url.host?.lowercased() == "import" else { return }
             importURL = url
         }
-        .sheet(item: $importURL) { url in
-            ImportLinkView(url: url)
-        }
+        .sheet(item: $importURL) { url in ImportLinkView(url: url) }
     }
 }

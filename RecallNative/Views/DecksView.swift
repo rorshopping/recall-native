@@ -5,6 +5,12 @@ struct DecksView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Deck.createdAt, order: .reverse) private var decks: [Deck]
     @State private var showingNewDeck = false
+    @State private var showingPaywall = false
+    @StateObject private var subscriptions = SubscriptionService()
+
+    private var canCreateDeck: Bool {
+        EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count)
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,9 +29,14 @@ struct DecksView: View {
             }
             .navigationTitle("Library")
             .toolbar {
-                Button { showingNewDeck = true } label: { Image(systemName: "plus") }
+                Button {
+                    if canCreateDeck { showingNewDeck = true } else { showingPaywall = true }
+                } label: { Image(systemName: "plus") }
+                .accessibilityLabel(canCreateDeck ? "New deck" : "Unlock more decks")
             }
+            .task { await subscriptions.load() }
             .sheet(isPresented: $showingNewDeck) { NewDeckSheet() }
+            .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
         }
     }
 }
@@ -63,7 +74,8 @@ private struct NewDeckSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        modelContext.insert(Deck(name: name.isEmpty ? "Untitled" : name, emoji: emoji))
+                        modelContext.insert(Deck(name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled" : name.trimmingCharacters(in: .whitespacesAndNewlines), emoji: emoji.isEmpty ? "📚" : emoji))
+                        try? modelContext.save()
                         dismiss()
                     }
                 }

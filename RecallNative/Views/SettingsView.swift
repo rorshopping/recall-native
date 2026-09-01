@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var showingAbout = false
     @State private var showingAIInfo = false
     @State private var showingLicenses = false
+    @State private var showingPaywall = false
     @State private var errorMessage: String?
     @State private var iCloudAvailable: Bool?
     @State private var lastSync: Date?
@@ -28,9 +29,21 @@ struct SettingsView: View {
                 Section("Appearance") { Picker("Theme", selection: $appearance) { Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark") }.pickerStyle(.menu) }
                 Section("Study") { Stepper("Daily goal · \(dailyGoal) cards", value: $dailyGoal, in: 5...200, step: 5); Toggle("Haptic feedback", isOn: $hapticsEnabled) }
                 Section("Account & Premium") {
-                    if subscriptions.isPremium { Label("Premium active", systemImage: "checkmark.seal.fill").foregroundStyle(RecallTheme.accent) }
-                    else if !subscriptions.products.isEmpty { ForEach(subscriptions.products) { product in Button { Task { await subscriptions.purchase(product) } } label: { HStack { VStack(alignment: .leading) { Text(product.displayName).foregroundStyle(.primary); Text(product.description).font(.caption).foregroundStyle(.secondary).lineLimit(2) }; Spacer(); Text(product.displayPrice).font(.headline) } } } }
-                    else { Label("Premium", systemImage: "star.fill"); Text("Premium products are unavailable until App Store Connect products are configured.").font(.caption).foregroundStyle(.secondary) }
+                    if subscriptions.isPremium {
+                        Label("Premium active", systemImage: "checkmark.seal.fill").foregroundStyle(RecallTheme.accent)
+                    } else {
+                        Button { showingPaywall = true } label: {
+                            Label("Unlock Recall Full", systemImage: "sparkles")
+                        }
+                        Text("Unlimited decks and cards, all study modes, and iCloud sync.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if !subscriptions.products.isEmpty {
+                        ForEach(subscriptions.products) { product in
+                            Button { Task { await subscriptions.purchase(product) } } label: {
+                                HStack { VStack(alignment: .leading) { Text(product.displayName).foregroundStyle(.primary); Text(product.description).font(.caption).foregroundStyle(.secondary).lineLimit(2) }; Spacer(); Text(product.displayPrice).font(.headline) }
+                            }
+                        }
+                    }
                     Button("Restore Purchases", systemImage: "arrow.clockwise") { Task { await subscriptions.restore() } }
                 }
                 Section("Sync") {
@@ -65,6 +78,7 @@ struct SettingsView: View {
             .sheet(isPresented: $showingAbout) { AboutSheet() }
             .sheet(isPresented: $showingAIInfo) { AIInfoSheet() }
             .sheet(isPresented: $showingLicenses) { LicensesSheet() }
+            .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .alert("Settings error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") { errorMessage = nil } } message: { Text(errorMessage ?? "") }
             .confirmationDialog("Delete all local study data?", isPresented: $showingResetConfirmation, titleVisibility: .visible) { Button("Delete Everything", role: .destructive) { resetData() }; Button("Cancel", role: .cancel) {} }
         }

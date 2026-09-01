@@ -4,92 +4,125 @@ import SwiftData
 struct DeckDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var deck: Deck
-    @State private var showingAdd = false
+    @State private var showingEditor = false
+    @State private var editingCard: Flashcard?
+    @State private var showingReview = false
+
+    private var sortedCards: [Flashcard] { deck.cards.sorted { $0.createdAt > $1.createdAt } }
 
     var body: some View {
-        List {
-            Section {
-                HStack(spacing: 18) {
-                    Text(deck.emoji).font(.system(size: 44))
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("\(deck.cards.count) cards")
-                            .font(.title3.bold())
-                        Text("\(deck.dueCount) ready to review")
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-            }
-
-            Section("Cards") {
-                if deck.cards.isEmpty {
-                    ContentUnavailableView("No cards yet", systemImage: "rectangle.stack.badge.plus", description: Text("Add one manually or create cards from notes."))
-                } else {
-                    ForEach(deck.cards.sorted { $0.createdAt > $1.createdAt }) { card in
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(card.question)
-                                .font(.headline)
-                                .lineLimit(3)
-                            Text(card.answer)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                RecallCard {
+                    HStack(spacing: 16) {
+                        Text(deck.emoji).font(.system(size: 42))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(deck.name).font(.title2.bold())
+                            Text("\(deck.cards.count) cards · \(deck.dueCount) ready to review")
+                                .font(.subheadline).foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 5)
+                        Spacer()
+                    }
+                }
+
+                if deck.dueCount > 0 {
+                    Button { showingReview = true } label: {
+                        Label("Study \(deck.dueCount) cards", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.large)
+                }
+
+                HStack {
+                    Text("Cards").font(.title3.bold())
+                    Spacer()
+                    Button { showingEditor = true } label: { Label("Add", systemImage: "plus") }
+                }
+
+                if sortedCards.isEmpty {
+                    RecallCard {
+                        ContentUnavailableView("No cards yet", systemImage: "rectangle.stack.badge.plus", description: Text("Add a card manually or create cards from notes."))
+                    }
+                } else {
+                    ForEach(sortedCards) { card in
+                        Button { editingCard = card } label: {
+                            RecallCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text(card.question).font(.headline).multilineTextAlignment(.leading)
+                                        Spacer()
+                                        Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                                    }
+                                    Text(card.answer).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+                                    HStack(spacing: 6) {
+                                        Text(card.statusTitle).font(.caption.weight(.medium))
+                                        if card.isDue { Text("· Due now").font(.caption).foregroundStyle(.secondary) }
+                                    }.foregroundStyle(RecallTheme.accent)
+                                }
+                            }
+                        }.buttonStyle(.plain)
                     }
                     .onDelete { offsets in
-                        let sorted = deck.cards.sorted { $0.createdAt > $1.createdAt }
-                        offsets.map { sorted[$0] }.forEach(modelContext.delete)
+                        offsets.map { sortedCards[$0] }.forEach(modelContext.delete)
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
         }
+        .background(RecallTheme.canvas)
         .navigationTitle(deck.name)
         .toolbar {
-            Button { showingAdd = true } label: { Image(systemName: "plus") }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Add card", systemImage: "plus") { showingEditor = true }
+                    if deck.dueCount > 0 { Button("Study deck", systemImage: "play.fill") { showingReview = true } }
+                } label: { Image(systemName: "ellipsis.circle") }
+            }
         }
-        .sheet(isPresented: $showingAdd) { AddCardSheet(deck: deck) }
+        .sheet(isPresented: $showingEditor) { CardEditorSheet(deck: deck) }
+        .sheet(item: $editingCard) { card in CardEditorSheet(deck: deck, card: card) }
+        .fullScreenCover(isPresented: $showingReview) { ReviewView(deck: deck) }
     }
 }
 
-private struct AddCardSheet: View {
+private struct CardEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     let deck: Deck
-    @State private var question = ""
-    @State private var answer = ""
+    let card: Flashcard?
+    @State private var question: String
+    @State private var answer: String
 
-    private var canAdd: Bool {
-        !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    init(deck: Deck, card: Flashcard? = nil) {
+        self.deck = deck; self.card = card
+        _question = State(initialValue: card?.question ?? "")
+        _answer = State(initialValue: card?.answer ?? "")
     }
+
+    private var valid: Bool { !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Question") {
-                    TextEditor(text: $question)
-                        .frame(minHeight: 110)
-                }
-                Section("Answer") {
-                    TextEditor(text: $answer)
-                        .frame(minHeight: 110)
+                Section("Question") { TextEditor(text: $question).frame(minHeight: 130) }
+                Section("Answer") { TextEditor(text: $answer).frame(minHeight: 160) }
+                if card != nil {
+                    Section { Button("Delete card", role: .destructive) { if let card { modelContext.delete(card) }; dismiss() } }
                 }
             }
-            .navigationTitle("New card")
+            .navigationTitle(card == nil ? "New card" : "Edit card")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        let card = Flashcard(question: question.trimmingCharacters(in: .whitespacesAndNewlines), answer: answer.trimmingCharacters(in: .whitespacesAndNewlines), deck: deck)
-                        modelContext.insert(card)
+                    Button(card == nil ? "Add" : "Save") {
+                        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let a = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let card { card.question = q; card.answer = a } else { modelContext.insert(Flashcard(question: q, answer: a, deck: deck)) }
                         dismiss()
-                    }
-                    .disabled(!canAdd)
+                    }.disabled(!valid)
                 }
             }
-        }
-        .presentationDetents([.large])
+        }.presentationDetents([.large])
     }
 }

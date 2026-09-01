@@ -3,10 +3,23 @@ options:
   bundleIdPrefix: com.recalllabs
   deploymentTarget:
     iOS: "18.0"
+  developmentLanguage: en
+  groupSortPosition: top
+  generateEmptyDirectories: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: AGYVQ59A5S
+    CODE_SIGN_STYLE: Manual
+    SWIFT_VERSION: "6.0"
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: "0.1.0"
 packages:
   RecallOnDeviceAI:
     url: https://github.com/rorshopping/recall-ondevice-ai.git
-    branch: master
+    # Pinned to a tagged release so Swift 6 concurrency-safe storage
+    # (nonisolated(unsafe) on ExperimentalFlags, @unchecked Sendable on
+    # Conversation/StreamContext, nonisolated deinit on Engine) is present.
+    exactVersion: 0.1.4
 targets:
   RecallNative:
     type: application

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import RecallLiteRT
 
 actor LiteRTModelStore {
     static let shared = LiteRTModelStore()

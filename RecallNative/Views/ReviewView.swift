@@ -5,6 +5,54 @@ import AVFoundation
 import UIKit
 #endif
 
+@MainActor
+final class ReviewAudioController: ObservableObject {
+    @Published private(set) var isPlaying = false
+    private var player: AVPlayer?
+    private var endObserver: NSObjectProtocol?
+
+    func toggle(url: URL) {
+        if isPlaying {
+            stop()
+            return
+        }
+        stop()
+        let newPlayer = AVPlayer(url: url)
+        player = newPlayer
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: newPlayer.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isPlaying = false
+                self?.player = nil
+                self?.removeObserver()
+            }
+        }
+        isPlaying = true
+        newPlayer.play()
+    }
+
+    func stop() {
+        player?.pause()
+        player = nil
+        isPlaying = false
+        removeObserver()
+    }
+
+    private func removeObserver() {
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+            self.endObserver = nil
+        }
+    }
+
+    deinit {
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+    }
+}
+
 struct ReviewView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -19,8 +67,7 @@ struct ReviewView: View {
     @State private var typed = ""
     @State private var typeChecked: Bool?
     @State private var didInitialize = false
-    @State private var player: AVPlayer?
-    @State private var isPlayingAudio = false
+    @StateObject private var audio = ReviewAudioController()
 
     init(deck: Deck? = nil, studyAll: Bool = false) { self.deck = deck; self.studyAll = studyAll }
 
@@ -33,10 +80,10 @@ struct ReviewView: View {
                 else { ProgressView() }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { stopAudio(); dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { audio.stop(); dismiss() } } }
         }
         .task { initializeIfNeeded() }
-        .onDisappear { stopAudio() }
+        .onDisappear { audio.stop() }
     }
 
     private var studyBody: some View {
@@ -96,15 +143,12 @@ struct ReviewView: View {
                     } placeholder: { ProgressView().frame(maxWidth: .infinity) }
                 }
             } else if mediaType == "audio" {
-                Button {
-                    toggleAudio(url: url)
-                } label: {
-                    Label(isPlayingAudio ? "Pause audio" : "Play audio", systemImage: isPlayingAudio ? "pause.circle.fill" : "play.circle.fill")
+                Button { audio.toggle(url: url) } label: {
+                    Label(audio.isPlaying ? "Pause audio" : "Play audio", systemImage: audio.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .onDisappear { stopAudio() }
             }
         }
     }
@@ -112,30 +156,6 @@ struct ReviewView: View {
     #if canImport(UIKit)
     private func loadLocalImage(_ url: URL) -> UIImage? { UIImage(contentsOfFile: url.path) }
     #endif
-
-    private func toggleAudio(url: URL) {
-        if isPlayingAudio {
-            player?.pause()
-            isPlayingAudio = false
-            return
-        }
-        do {
-            let newPlayer = AVPlayer(url: url)
-            player?.pause()
-            player = newPlayer
-            isPlayingAudio = true
-            NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: newPlayer.currentItem, queue: .main) { _ in
-                isPlayingAudio = false
-            }
-            newPlayer.play()
-        }
-    }
-
-    private func stopAudio() {
-        player?.pause()
-        player = nil
-        isPlayingAudio = false
-    }
 
     private var ratings: some View {
         HStack(spacing: 8) {
@@ -186,9 +206,8 @@ struct ReviewView: View {
         guard !didInitialize else { return }
         let scoped = cards.filter { deck == nil || $0.deck?.id == deck?.id }
         let initial: [Flashcard]
-        if studyAll {
-            initial = scoped
-        } else {
+        if studyAll { initial = scoped }
+        else {
             let due = scoped.filter { !$0.isNew && $0.isDue }
             let fresh = Array(scoped.filter(\.isNew).prefix(deck?.newRemainingToday ?? scoped.count))
             initial = due + fresh
@@ -199,7 +218,7 @@ struct ReviewView: View {
     }
 
     private func restart() {
-        stopAudio()
+        audio.stop()
         didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; revealed = false; typed = ""; typeChecked = nil
         initializeIfNeeded()
     }
@@ -217,7 +236,7 @@ struct ReviewView: View {
 
     private func rate(_ grade: Int) {
         guard let card = queue.first else { return }
-        stopAudio()
+        audio.stop()
         let wasNew = card.isNew
         let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade)
         card.state = result.state; card.step = result.step; card.repetitions = result.repetitions; card.interval = result.interval; card.ease = result.ease; card.dueAt = result.dueAt; card.lastReviewedAt = .now

@@ -210,7 +210,7 @@ private struct CardEditorSheet: View {
         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
         let a = answer.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty, !a.isEmpty else { return }
-        if type == "cloze" && !q.range(of: #"\{\{c\d+::[^}]+\}\}"#, options: .regularExpression).isPresent {
+        if type == "cloze" && q.range(of: #"\{\{c\d+::[^}]+\}\}"#, options: .regularExpression) == nil {
             errorMessage = "Cloze cards need at least one {{c1::...}} marker in the front."
             return
         }
@@ -240,8 +240,4 @@ private struct CardEditorSheet: View {
         try? modelContext.save()
         dismiss()
     }
-}
-
-private extension Range where Bound == String.Index {
-    var isPresent: Bool { true }
 }

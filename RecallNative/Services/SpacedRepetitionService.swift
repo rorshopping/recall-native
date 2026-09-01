@@ -10,10 +10,13 @@ struct SchedulingResult {
 }
 
 enum SpacedRepetitionService {
-    static let learningSteps: [TimeInterval] = [60, 10 * 60]
     static let day: TimeInterval = 86_400
     static let minEase = 1.3
     static let maxEase = 3.0
+    static let relearnMin: TimeInterval = 60
+    static let learningSteps: [TimeInterval] = [60, 10 * 60]
+    private static let hardMultiplier = 1.2
+    private static let easyBoost = 1.3
 
     static func schedule(state: String, step: Int, repetitions: Int, interval: Int, ease: Double, grade: Int, now: Date = .now) -> SchedulingResult {
         var state = state
@@ -26,7 +29,7 @@ enum SpacedRepetitionService {
             ease = max(minEase, ease - 0.2)
             if state == "review" {
                 state = "relearning"; step = 0; reps = 0; interval = 0
-                return .init(state: state, step: step, repetitions: reps, interval: interval, ease: ease, dueAt: now.addingTimeInterval(60))
+                return .init(state: state, step: step, repetitions: reps, interval: interval, ease: ease, dueAt: now.addingTimeInterval(relearnMin))
             }
             state = "learning"; step = 0; reps = 0; interval = 0
             return .init(state: state, step: step, repetitions: reps, interval: interval, ease: ease, dueAt: now.addingTimeInterval(learningSteps[0]))
@@ -35,7 +38,7 @@ enum SpacedRepetitionService {
         if state == "review" {
             reps += 1
             if grade == 1 {
-                interval = max(1, Int((Double(max(interval, 1)) * 1.2).rounded()))
+                interval = max(1, Int((Double(max(interval, 1)) * hardMultiplier).rounded()))
             } else if grade == 2 {
                 interval = graduatedInterval(reps: reps, interval: interval, ease: ease, easy: false)
                 ease = min(maxEase, ease + 0.1)
@@ -60,10 +63,18 @@ enum SpacedRepetitionService {
         return .init(state: state, step: step, repetitions: reps, interval: interval, ease: ease, dueAt: now.addingTimeInterval(learningSteps[step]))
     }
 
+    static func isDue(dueAt: Date, now: Date = .now) -> Bool {
+        dueAt <= now
+    }
+
+    static func daysUntilDue(dueAt: Date, now: Date = .now) -> Int {
+        Int(ceil(dueAt.timeIntervalSince(now) / day))
+    }
+
     private static func graduatedInterval(reps: Int, interval: Int, ease: Double, easy: Bool) -> Int {
         if reps == 1 { return 1 }
         if reps == 2 { return 6 }
         let base = Double(max(interval, 1))
-        return max(1, Int((base * ease * (easy ? 1.3 : 1.0)).rounded()))
+        return max(1, Int((base * ease * (easy ? easyBoost : 1.0)).rounded()))
     }
 }

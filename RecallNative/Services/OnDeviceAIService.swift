@@ -9,6 +9,8 @@ struct GeneratedCard: Identifiable, Sendable, Hashable {
     let id = UUID()
     let question: String
     let answer: String
+    let hint: String
+    let tags: String
 }
 
 enum AIServiceError: LocalizedError {
@@ -19,14 +21,10 @@ enum AIServiceError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .emptyInput:
-            return "Add some notes before generating cards."
-        case .insufficientContent:
-            return "There is not enough text to create useful cards."
-        case .modelMissing:
-            return "Gemma 4 is not installed yet. Download the on-device model first."
-        case .generationFailed(let message):
-            return message
+        case .emptyInput: return "Add some notes before generating cards."
+        case .insufficientContent: return "There is not enough text to create useful cards."
+        case .modelMissing: return "Gemma 4 is not installed yet. Download the on-device model first."
+        case .generationFailed(let message): return message
         }
     }
 }
@@ -37,11 +35,11 @@ struct LocalAIService: OnDeviceAIService {
 
     Output rules (STRICT):
     - Respond with ONLY one JSON object, no markdown fences, no commentary before or after.
-    - Shape: {\"deck\":\"title\",\"cards\":[{\"front\":\"Question\",\"back\":\"Answer\",\"hint\":\"\",\"tags\":\"\"}]}
+    - Shape: {\"deck\":\"title\",\"cards\":[{\"front\":\"Question\",\"back\":\"Answer\",\"hint\":\"optional clue\",\"tags\":\"optional, comma separated\"}]}
     - front is a question or term to recall; back is the concise answer.
     - Keep every field short enough to fit on one screen.
     - Base every card ONLY on the supplied material. Never invent facts, numbers, or claims.
-    - Produce between 5 and 15 high-value cards covering core terms, relationships, and one apply/why-it-matters question.
+    - Produce between 10 and 25 high-value cards covering core terms, relationships, examples, and distinctions.
     - Use the same language as the input when it is clearly non-English.
     - If the input is empty or too thin, return {\"deck\":\"\",\"cards\":[]}.
     """
@@ -52,11 +50,7 @@ struct LocalAIService: OnDeviceAIService {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw AIServiceError.emptyInput }
         guard cleaned.count >= 40 else { throw AIServiceError.insufficientContent }
-
-        guard let modelURL = await modelStore.modelURL() else {
-            throw AIServiceError.modelMissing
-        }
-
+        guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
         do {
             let engine = RecallLiteRTEngine(modelPath: modelURL.path)
             let raw = try await engine.generateDeckJSON(topic: cleaned, systemPrompt: Self.systemPrompt)
@@ -69,27 +63,18 @@ struct LocalAIService: OnDeviceAIService {
     }
 
     private static func parseDeck(_ raw: String) throws -> [GeneratedCard] {
-        let normalized = raw
-            .replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard let data = normalized.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let cards = object["cards"] as? [[String: Any]] else {
+        let normalized = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = normalized.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let cards = object["cards"] as? [[String: Any]] else {
             throw AIServiceError.generationFailed("Gemma 4 returned an invalid flashcard deck. Please try again.")
         }
-
         let parsed = cards.compactMap { card -> GeneratedCard? in
-            guard let front = card["front"] as? String,
-                  let back = card["back"] as? String else { return nil }
+            guard let front = card["front"] as? String, let back = card["back"] as? String else { return nil }
             let question = front.trimmingCharacters(in: .whitespacesAndNewlines)
             let answer = back.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !question.isEmpty, !answer.isEmpty else { return nil }
-            return GeneratedCard(question: question, answer: answer)
+            return GeneratedCard(question: question, answer: answer, hint: (card["hint"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines), tags: (card["tags"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
         }
-
         guard !parsed.isEmpty else { throw AIServiceError.insufficientContent }
-        return Array(parsed.prefix(15))
+        return Array(parsed.prefix(25))
     }
 }

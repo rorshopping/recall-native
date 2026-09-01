@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var importURL: URL?
     @State private var showingDesignLab = false
     @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("designTheme") private var designTheme = "recall"
     @AppStorage("designLabTaps") private var designLabTaps = 0
 
     private var colorScheme: ColorScheme? {

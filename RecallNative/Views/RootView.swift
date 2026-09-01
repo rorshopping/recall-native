@@ -1,26 +1,23 @@
 import SwiftUI
 
 enum RecallTab: Hashable {
-    case today, library, create, review, settings
+    case decks, create, stats, settings
 }
 
 struct RootView: View {
-    @State private var selectedTab: RecallTab = .today
+    @State private var selectedTab: RecallTab = .decks
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomeView(onStartReview: { selectedTab = .review })
-                .tabItem { Label("Today", systemImage: "sparkles") }
-                .tag(RecallTab.today)
             DecksView()
-                .tabItem { Label("Library", systemImage: "rectangle.stack") }
-                .tag(RecallTab.library)
+                .tabItem { Label("Decks", systemImage: "tray.full") }
+                .tag(RecallTab.decks)
             CreateView()
-                .tabItem { Label("Create", systemImage: "plus.circle.fill") }
+                .tabItem { Label("Create", systemImage: "sparkles") }
                 .tag(RecallTab.create)
-            ReviewView()
-                .tabItem { Label("Review", systemImage: "brain.head.profile") }
-                .tag(RecallTab.review)
+            StatsView()
+                .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(RecallTab.stats)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(RecallTab.settings)

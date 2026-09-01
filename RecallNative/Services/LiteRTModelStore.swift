@@ -1,16 +1,16 @@
+import CryptoKit
 import Foundation
 
 actor LiteRTModelStore {
     static let shared = LiteRTModelStore()
 
-    private let filename = "gemma-4-E2B-it.litertlm"
+    static let modelFilename = "gemma-4-E2B-it.litertlm"
+    static let expectedSHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
     private let downloadURL = URL(string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm")!
-    private let expectedSHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
-
     private var activeDownload: Task<URL, Error>?
 
     func modelURL() -> URL? {
-        let url = documentsURL().appendingPathComponent(filename)
+        let url = documentsURL().appendingPathComponent(Self.modelFilename)
         guard FileManager.default.fileExists(atPath: url.path),
               RecallLiteRTEngine.isLiteRTLM(url) else { return nil }
         return url
@@ -34,7 +34,7 @@ actor LiteRTModelStore {
                 throw LiteRTModelError.downloadFailed
             }
 
-            let destination = documentsURL().appendingPathComponent(filename)
+            let destination = documentsURL().appendingPathComponent(Self.modelFilename)
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: temporaryURL, to: destination)
 
@@ -44,7 +44,7 @@ actor LiteRTModelStore {
             }
 
             let digest = try sha256(of: destination)
-            guard digest == expectedSHA256 else {
+            guard digest == Self.expectedSHA256 else {
                 try? FileManager.default.removeItem(at: destination)
                 throw LiteRTModelError.checksumMismatch
             }
@@ -57,7 +57,7 @@ actor LiteRTModelStore {
     }
 
     func deleteDownloadedModel() {
-        let url = documentsURL().appendingPathComponent(filename)
+        let url = documentsURL().appendingPathComponent(Self.modelFilename)
         try? FileManager.default.removeItem(at: url)
     }
 
@@ -68,13 +68,13 @@ actor LiteRTModelStore {
     private func sha256(of url: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
-        var hasher = SHA256Hasher()
+        var hasher = SHA256()
         while true {
             let data = handle.readData(ofLength: 4 * 1024 * 1024)
             if data.isEmpty { break }
-            hasher.update(data)
+            hasher.update(data: data)
         }
-        return hasher.finalize()
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -92,18 +92,5 @@ enum LiteRTModelError: LocalizedError {
         case .checksumMismatch:
             return "The Gemma 4 download failed integrity verification. Please try again."
         }
-    }
-}
-
-private struct SHA256Hasher {
-    private var bytes: [UInt8] = []
-
-    mutating func update(_ data: Data) {
-        bytes.append(contentsOf: data)
-    }
-
-    func finalize() -> String {
-        // Placeholder replaced by CryptoKit-backed implementation below.
-        bytes.map { String(format: "%02x", $0) }.joined()
     }
 }

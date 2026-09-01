@@ -56,7 +56,6 @@ struct RecallNativeTests {
         let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = ModelContext(container)
         let json = #"{"deck":"Biology","cards":[{"front":"Cell","back":"Basic unit of life","hint":"Think smallest living unit","tags":"biology,basics"}]}"#.data(using: .utf8)!
-
         let deck = try DeckImportService.add(json, to: context)
         #expect(deck.name == "Biology")
         #expect(deck.cards.count == 1)
@@ -75,4 +74,39 @@ struct RecallNativeTests {
         #expect(!EntitlementRules.canCreateCard(isPremium: false, cardCount: 50))
         #expect(EntitlementRules.canCreateCard(isPremium: true, cardCount: 500))
     }
+
+    @Test func backupRejectsOrphanedCard() throws {
+        let orphanDeck = UUID()
+        let card = UUID()
+        let backup = RecallBackup(version: 1, exportedAt: .now, decks: [], cards: [.init(id: card, question: "Q", answer: "A", hint: "", tags: "", type: "basic", typeInAnswer: false, mediaType: nil, mediaURI: nil, createdAt: .now, dueAt: .now, interval: 0, ease: 2.5, repetitions: 0, state: "new", step: 0, lapses: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0, lastReviewedAt: nil, deckID: orphanDeck)], reviews: [])
+        let data = try JSONEncoder.iso8601.encode(backup)
+        #expect(throws: BackupService.BackupError.orphanedCards) { try BackupService.validate(data) }
+    }
+
+    @Test func backupRejectsDuplicateIDs() throws {
+        let id = UUID()
+        let deck = RecallBackup.DeckRecord(id: id, name: "A", emoji: "📚", createdAt: .now, newDay: "", newStudiedToday: 0)
+        let backup = RecallBackup(version: 1, exportedAt: .now, decks: [deck, deck], cards: [], reviews: [])
+        let data = try JSONEncoder.iso8601.encode(backup)
+        #expect(throws: BackupService.BackupError.duplicateIDs) { try BackupService.validate(data) }
+    }
+
+    @Test func backupRejectsIDCollisionOnMergeRestore() throws {
+        let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
+        let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let id = UUID()
+        let existing = Deck(name: "Existing")
+        existing.id = id
+        context.insert(existing)
+        try context.save()
+        let incoming = RecallBackup.DeckRecord(id: id, name: "Incoming", emoji: "📚", createdAt: .now, newDay: "", newStudiedToday: 0)
+        let backup = RecallBackup(version: 1, exportedAt: .now, decks: [incoming], cards: [], reviews: [])
+        let data = try JSONEncoder.iso8601.encode(backup)
+        #expect(throws: BackupService.BackupError.idCollision) { try BackupService.restore(data, context: context, replaceExisting: false) }
+    }
+}
+
+private extension JSONEncoder {
+    static var iso8601: JSONEncoder { let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; return encoder }
 }

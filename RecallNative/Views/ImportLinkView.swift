@@ -9,6 +9,7 @@ struct ImportLinkView: View {
     @State private var error = ""
     @State private var importedName = ""
     @State private var importedCount = 0
+
     enum State { case confirm, loading, done, failed }
 
     var body: some View {
@@ -50,6 +51,7 @@ struct ImportLinkView: View {
         return "The link does not contain a supported deck source."
     }
 
+    @MainActor
     private func importDeck() async {
         state = .loading
         do {
@@ -57,20 +59,40 @@ struct ImportLinkView: View {
             let parsed = try DeckImportService.parse(data)
             let deck = Deck(name: parsed.name, emoji: "📚")
             modelContext.insert(deck)
-            for card in parsed.cards { modelContext.insert(Flashcard(question: card.front.trimmingCharacters(in: .whitespacesAndNewlines), answer: card.back.trimmingCharacters(in: .whitespacesAndNewlines), deck: deck)) }
+            for card in parsed.cards {
+                let item = Flashcard(
+                    question: card.front.trimmingCharacters(in: .whitespacesAndNewlines),
+                    answer: card.back.trimmingCharacters(in: .whitespacesAndNewlines),
+                    hint: card.hint ?? "",
+                    tags: card.tags ?? "",
+                    deck: deck
+                )
+                modelContext.insert(item)
+            }
             try modelContext.save()
-            importedName = parsed.name; importedCount = parsed.cards.count; state = .done
-        } catch { error = error.localizedDescription; state = .failed }
+            importedName = parsed.name
+            importedCount = parsed.cards.count
+            state = .done
+        } catch {
+            error = error.localizedDescription
+            state = .failed
+        }
     }
 
     private func loadData() async throws -> Data {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         if let encoded = items.first(where: { $0.name == "data" })?.value {
             guard let data = encoded.data(using: .utf8) else { throw ImportError.invalidData }
+            guard data.count <= 2 * 1024 * 1024 else { throw ImportError.tooLarge }
             return data
         }
-        guard let remote = items.first(where: { $0.name == "url" })?.value, let remoteURL = URL(string: remote), ["http", "https"].contains(remoteURL.scheme?.lowercased()) else { throw ImportError.invalidData }
-        let (data, response) = try await URLSession.shared.data(from: remoteURL)
+        guard let remote = items.first(where: { $0.name == "url" })?.value,
+              let remoteURL = URL(string: remote),
+              ["http", "https"].contains(remoteURL.scheme?.lowercased())
+        else { throw ImportError.invalidData }
+        var request = URLRequest(url: remoteURL)
+        request.timeoutInterval = 20
+        let (data, response) = try await URLSession.shared.data(for: request)
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { throw ImportError.httpFailure(http.statusCode) }
         guard data.count <= 2 * 1024 * 1024 else { throw ImportError.tooLarge }
         return data
@@ -78,6 +100,12 @@ struct ImportLinkView: View {
 
     enum ImportError: LocalizedError {
         case invalidData, tooLarge, httpFailure(Int)
-        var errorDescription: String? { switch self { case .invalidData: return "The link does not contain valid deck data."; case .tooLarge: return "Deck file is too large. Maximum size is 2 MB."; case .httpFailure(let code): return "Could not fetch deck (HTTP \(code))." } }
+        var errorDescription: String? {
+            switch self {
+            case .invalidData: return "The link does not contain valid deck data."
+            case .tooLarge: return "Deck file is too large. Maximum size is 2 MB."
+            case .httpFailure(let code): return "Could not fetch deck (HTTP \(code))."
+            }
+        }
     }
 }

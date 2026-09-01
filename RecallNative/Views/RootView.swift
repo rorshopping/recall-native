@@ -6,22 +6,22 @@ enum RecallTab: Hashable {
 
 struct RootView: View {
     @State private var selectedTab: RecallTab = .decks
+    @State private var importURL: URL?
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DecksView()
-                .tabItem { Label("Decks", systemImage: "tray.full") }
-                .tag(RecallTab.decks)
-            CreateView()
-                .tabItem { Label("Create", systemImage: "sparkles") }
-                .tag(RecallTab.create)
-            StatsView()
-                .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(RecallTab.stats)
-            SettingsView()
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(RecallTab.settings)
+            DecksView().tabItem { Label("Decks", systemImage: "tray.full") }.tag(RecallTab.decks)
+            CreateView().tabItem { Label("Create", systemImage: "sparkles") }.tag(RecallTab.create)
+            StatsView().tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }.tag(RecallTab.stats)
+            SettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(RecallTab.settings)
         }
         .tint(RecallTheme.accent)
+        .onOpenURL { url in
+            guard ["recall", "recall-flashcards"].contains(url.scheme?.lowercased()), url.host?.lowercased() == "import" else { return }
+            importURL = url
+        }
+        .sheet(item: $importURL) { url in
+            ImportLinkView(url: url)
+        }
     }
 }

@@ -6,11 +6,14 @@ import UIKit
 struct AIImportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query private var decks: [Deck]
+    @StateObject private var subscriptions = SubscriptionService()
     @State private var json = ""
     @State private var copied = false
     @State private var showingImporter = false
     @State private var errorMessage: String?
     @State private var showingSuccess = false
+    @State private var showingPaywall = false
     @State private var importedName = ""
     @State private var importedCount = 0
 
@@ -64,6 +67,7 @@ Rules:
             .navigationTitle("AI Import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .task { await subscriptions.load() }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
                 guard case .success(let urls) = result, let url = urls.first else { return }
                 let secured = url.startAccessingSecurityScopedResource()
@@ -71,6 +75,7 @@ Rules:
                 do { json = try String(contentsOf: url, encoding: .utf8) }
                 catch { errorMessage = "Could not read that JSON file." }
             }
+            .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .alert("Could not import", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") {} } message: { Text(errorMessage ?? "") }
             .alert("Deck created", isPresented: $showingSuccess) { Button("Done") { dismiss() } } message: { Text("\(importedName) · \(importedCount) cards added.") }
         }
@@ -79,6 +84,15 @@ Rules:
     private func createDeck() {
         do {
             let parsed = try DeckImportService.parse(Data(json.utf8))
+            guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else {
+                showingPaywall = true
+                return
+            }
+            if !subscriptions.isPremium && parsed.cards.count > EntitlementRules.freeCardLimitPerDeck {
+                errorMessage = "The free plan supports up to \(EntitlementRules.freeCardLimitPerDeck) cards per deck. Unlock Recall Full to import this deck."
+                showingPaywall = true
+                return
+            }
             let deck = Deck(name: parsed.name, emoji: "📚")
             modelContext.insert(deck)
             for card in parsed.cards {

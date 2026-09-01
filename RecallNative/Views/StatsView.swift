@@ -5,7 +5,7 @@ struct StatsView: View {
     @Query(sort: \.ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
     @Query private var cards: [Flashcard]
     @Query private var decks: [Deck]
-    @AppStorage("dailyReviewGoal") private var dailyGoal = 20
+    @AppStorage("dailyGoal") private var dailyGoal = 20
 
     private var todayReviews: Int { reviews.filter { Calendar.current.isDateInToday($0.reviewedAt) }.count }
     private var streak: Int {

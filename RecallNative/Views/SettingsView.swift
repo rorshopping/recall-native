@@ -34,8 +34,7 @@ struct SettingsView: View {
                                             .lineLimit(2)
                                     }
                                     Spacer()
-                                    Text(product.displayPrice)
-                                        .font(.headline)
+                                    Text(product.displayPrice).font(.headline)
                                 }
                             }
                         }
@@ -48,14 +47,13 @@ struct SettingsView: View {
 
                 Section("About") {
                     Label("Built natively with SwiftUI", systemImage: "swift")
-                    Text("Recall Native")
-                        .foregroundStyle(.secondary)
+                    Text("Recall Native").foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Settings")
             .task { await subscriptions.load() }
-            .alert("Purchase issue", isPresented: Binding(get: { subscriptions.purchaseError != nil }, set: { if !$0 { subscriptions.purchaseError = nil } })) {
-                Button("OK") { subscriptions.purchaseError = nil }
+            .alert("Purchase issue", isPresented: Binding(get: { subscriptions.purchaseError != nil }, set: { if !$0 { subscriptions.clearError() } })) {
+                Button("OK") { subscriptions.clearError() }
             } message: {
                 Text(subscriptions.purchaseError ?? "")
             }

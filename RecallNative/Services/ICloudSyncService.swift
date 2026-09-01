@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-struct ICloudSyncService: Sendable {
+struct ICloudSyncService {
     private let store = NSUbiquitousKeyValueStore.default
     private let key = "recall.native.backup.v1"
 
@@ -16,6 +16,7 @@ struct ICloudSyncService: Sendable {
         guard isAvailable() else { return false }
         let data = try BackupService.makeBackup(context: context)
         store.set(data, forKey: key)
+        store.set(Date.now, forKey: "recall.native.lastSync")
         store.synchronize()
         return true
     }
@@ -27,5 +28,4 @@ struct ICloudSyncService: Sendable {
     }
 
     func lastSyncDate() -> Date? { store.object(forKey: "recall.native.lastSync") as? Date }
-    func markSynced() { store.set(Date.now, forKey: "recall.native.lastSync"); store.synchronize() }
 }

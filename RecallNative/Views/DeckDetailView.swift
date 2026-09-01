@@ -7,6 +7,12 @@ struct DeckDetailView: View {
     @State private var showingEditor = false
     @State private var editingCard: Flashcard?
     @State private var showingReview = false
+    @State private var showingPaywall = false
+    @StateObject private var subscriptions = SubscriptionService()
+
+    private var canAddCard: Bool {
+        EntitlementRules.canCreateCard(isPremium: subscriptions.isPremium, cardCount: deck.cards.count)
+    }
 
     private var sortedCards: [Flashcard] { deck.cards.sorted { $0.createdAt > $1.createdAt } }
 
@@ -36,7 +42,23 @@ struct DeckDetailView: View {
                 HStack {
                     Text("Cards").font(.title3.bold())
                     Spacer()
-                    Button { showingEditor = true } label: { Label("Add", systemImage: "plus") }
+                    Button {
+                        if canAddCard { showingEditor = true } else { showingPaywall = true }
+                    } label: {
+                        Label(canAddCard ? "Add" : "Unlock", systemImage: canAddCard ? "plus" : "lock.fill")
+                    }
+                }
+
+                if !subscriptions.isPremium && deck.cards.count >= EntitlementRules.freeCardLimitPerDeck {
+                    RecallCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Free card limit reached", systemImage: "lock.fill").font(.headline)
+                            Text("Recall Full lets you keep adding cards to this deck.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            Button("Unlock Recall Full") { showingPaywall = true }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
                 }
 
                 if sortedCards.isEmpty {
@@ -75,13 +97,17 @@ struct DeckDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Add card", systemImage: "plus") { showingEditor = true }
+                    Button("Add card", systemImage: canAddCard ? "plus" : "lock.fill") {
+                        if canAddCard { showingEditor = true } else { showingPaywall = true }
+                    }
                     if deck.dueCount + deck.newRemainingToday > 0 { Button("Study deck", systemImage: "play.fill") { showingReview = true } }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
+        .task { await subscriptions.load() }
         .sheet(isPresented: $showingEditor) { CardEditorSheet(deck: deck) }
         .sheet(item: $editingCard) { card in CardEditorSheet(deck: deck, card: card) }
+        .sheet(isPresented: $showingPaywall) { PaywallView(reason: "cards") }
         .fullScreenCover(isPresented: $showingReview) { ReviewView(deck: deck) }
     }
 }

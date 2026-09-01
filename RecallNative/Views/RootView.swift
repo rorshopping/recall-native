@@ -21,25 +21,28 @@ struct RootView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            DecksView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Decks", systemImage: "tray.full") }
-                .tag(RecallTab.decks)
-            CreateView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Create", systemImage: "sparkles") }
-                .tag(RecallTab.create)
-            StatsView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(RecallTab.stats)
-            SettingsView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(RecallTab.settings)
+        GeometryReader { proxy in
+            TabView(selection: $selectedTab) {
+                DecksView()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .tabItem { Label("Decks", systemImage: "tray.full") }
+                    .tag(RecallTab.decks)
+                CreateView()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .tabItem { Label("Create", systemImage: "sparkles") }
+                    .tag(RecallTab.create)
+                StatsView()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
+                    .tag(RecallTab.stats)
+                SettingsView()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tag(RecallTab.settings)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea(.container, edges: .bottom)
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .tint(RecallTheme.accent)
         .preferredColorScheme(colorScheme)

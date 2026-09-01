@@ -10,10 +10,13 @@ struct CreateView: View {
     @State private var sourceText = ""
     @State private var deckName = ""
     @State private var isGenerating = false
+    @State private var isDownloadingModel = false
+    @State private var modelAvailable = false
     @State private var generated: [GeneratedCard] = []
     @State private var errorMessage: String?
     private let ai = LocalAIService()
     private let importer = DocumentImportService()
+    private let modelStore = LiteRTModelStore.shared
 
     var body: some View {
         NavigationStack {
@@ -27,15 +30,53 @@ struct CreateView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    if !modelAvailable {
+                        RecallCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "sparkles")
+                                        .font(.title2.weight(.semibold))
+                                        .foregroundStyle(RecallTheme.accent)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("On-device AI")
+                                            .font(.headline)
+                                        Text("Gemma 4 runs privately on your iPhone. The model is downloaded once and stays on device.")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                Button {
+                                    downloadModel()
+                                } label: {
+                                    if isDownloadingModel {
+                                        ProgressView()
+                                            .frame(maxWidth: .infinity)
+                                    } else {
+                                        Label("Download Gemma 4", systemImage: "arrow.down.circle.fill")
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                                .disabled(isDownloadingModel)
+                            }
+                        }
+                    }
+
                     Button { showingText = true } label: {
                         CreateAction(icon: "text.alignleft", title: "Paste notes", subtitle: "Best for articles, lectures, and notes")
                     }
                     .buttonStyle(.plain)
+                    .disabled(!modelAvailable || isDownloadingModel)
+                    .opacity(modelAvailable ? 1 : 0.55)
 
                     Button { showingImporter = true } label: {
                         CreateAction(icon: "doc.richtext", title: "Import PDF", subtitle: "Up to 5 pages, processed on device")
                     }
                     .buttonStyle(.plain)
+                    .disabled(!modelAvailable || isDownloadingModel)
+                    .opacity(modelAvailable ? 1 : 0.55)
 
                     if isGenerating {
                         RecallCard {
@@ -44,7 +85,7 @@ struct CreateView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Creating your cards")
                                         .font(.headline)
-                                    Text("This stays on your device.")
+                                    Text("Gemma 4 is running locally on this device.")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
@@ -88,6 +129,9 @@ struct CreateView: View {
             .background(RecallTheme.canvas)
             .navigationTitle("Create")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                modelAvailable = await modelStore.modelURL() != nil
+            }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { result in
                 handleImport(result)
             }
@@ -131,6 +175,20 @@ struct CreateView: View {
         return first.isEmpty ? "New deck" : first.capitalized
     }
 
+    private func downloadModel() {
+        guard !isDownloadingModel else { return }
+        isDownloadingModel = true
+        Task { @MainActor in
+            do {
+                _ = try await modelStore.downloadModel()
+                modelAvailable = true
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isDownloadingModel = false
+        }
+    }
+
     private func handleImport(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, let url = urls.first else { return }
         do {
@@ -141,6 +199,10 @@ struct CreateView: View {
 
     private func generate() {
         guard !isGenerating else { return }
+        guard modelAvailable else {
+            errorMessage = AIServiceError.modelMissing.localizedDescription
+            return
+        }
         isGenerating = true
         generated = []
         Task { @MainActor in

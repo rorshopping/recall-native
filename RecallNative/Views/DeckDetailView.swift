@@ -18,16 +18,16 @@ struct DeckDetailView: View {
                         Text(deck.emoji).font(.system(size: 42))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(deck.name).font(.title2.bold())
-                            Text("\(deck.cards.count) cards · \(deck.dueCount) ready to review")
+                            Text("\(deck.cards.count) cards · \(deck.dueCount) due · \(deck.newCount) new")
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }
                         Spacer()
                     }
                 }
 
-                if deck.dueCount > 0 {
+                if deck.dueCount + deck.newRemainingToday > 0 {
                     Button { showingReview = true } label: {
-                        Label("Study \(deck.dueCount) cards", systemImage: "play.fill")
+                        Label("Study \(deck.dueCount + deck.newRemainingToday) cards", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).controlSize(.large)
@@ -56,15 +56,14 @@ struct DeckDetailView: View {
                                     Text(card.answer).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
                                     HStack(spacing: 6) {
                                         Text(card.statusTitle).font(.caption.weight(.medium))
-                                        if card.isDue { Text("· Due now").font(.caption).foregroundStyle(.secondary) }
+                                        if card.type == "cloze" { Text("· Cloze").font(.caption) }
+                                        if card.typeInAnswer { Text("· Type-in").font(.caption) }
                                     }.foregroundStyle(RecallTheme.accent)
                                 }
                             }
                         }.buttonStyle(.plain)
                     }
-                    .onDelete { offsets in
-                        offsets.map { sortedCards[$0] }.forEach(modelContext.delete)
-                    }
+                    .onDelete { offsets in offsets.map { sortedCards[$0] }.forEach(modelContext.delete) }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,7 +75,7 @@ struct DeckDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("Add card", systemImage: "plus") { showingEditor = true }
-                    if deck.dueCount > 0 { Button("Study deck", systemImage: "play.fill") { showingReview = true } }
+                    if deck.dueCount + deck.newRemainingToday > 0 { Button("Study deck", systemImage: "play.fill") { showingReview = true } }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
@@ -93,11 +92,20 @@ private struct CardEditorSheet: View {
     let card: Flashcard?
     @State private var question: String
     @State private var answer: String
+    @State private var hint: String
+    @State private var tags: String
+    @State private var type: String
+    @State private var typeIn: Bool
 
     init(deck: Deck, card: Flashcard? = nil) {
-        self.deck = deck; self.card = card
+        self.deck = deck
+        self.card = card
         _question = State(initialValue: card?.question ?? "")
         _answer = State(initialValue: card?.answer ?? "")
+        _hint = State(initialValue: card?.hint ?? "")
+        _tags = State(initialValue: card?.tags ?? "")
+        _type = State(initialValue: card?.type ?? "basic")
+        _typeIn = State(initialValue: card?.typeInAnswer ?? false)
     }
 
     private var valid: Bool { !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -107,6 +115,21 @@ private struct CardEditorSheet: View {
             Form {
                 Section("Question") { TextEditor(text: $question).frame(minHeight: 130) }
                 Section("Answer") { TextEditor(text: $answer).frame(minHeight: 160) }
+                Section("Options") {
+                    Picker("Card type", selection: $type) {
+                        Text("Basic").tag("basic")
+                        Text("Cloze").tag("cloze")
+                    }
+                    Toggle("Type in answer", isOn: $typeIn)
+                    TextField("Hint (optional)", text: $hint)
+                    TextField("Tags (optional)", text: $tags)
+                }
+                if type == "cloze" {
+                    Section("Cloze") {
+                        Text("Use {{c1::answer}} in the question to hide a portion while studying.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
                 if card != nil {
                     Section { Button("Delete card", role: .destructive) { if let card { modelContext.delete(card) }; dismiss() } }
                 }
@@ -118,7 +141,17 @@ private struct CardEditorSheet: View {
                     Button(card == nil ? "Add" : "Save") {
                         let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
                         let a = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if let card { card.question = q; card.answer = a } else { modelContext.insert(Flashcard(question: q, answer: a, deck: deck)) }
+                        if let card {
+                            card.question = q; card.answer = a; card.hint = hint.trimmingCharacters(in: .whitespacesAndNewlines); card.tags = tags; card.type = type; card.typeInAnswer = typeIn
+                        } else {
+                            let newCard = Flashcard(question: q, answer: a, deck: deck)
+                            newCard.hint = hint.trimmingCharacters(in: .whitespacesAndNewlines)
+                            newCard.tags = tags
+                            newCard.type = type
+                            newCard.typeInAnswer = typeIn
+                            modelContext.insert(newCard)
+                        }
+                        try? modelContext.save()
                         dismiss()
                     }.disabled(!valid)
                 }

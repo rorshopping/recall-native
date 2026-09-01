@@ -7,7 +7,9 @@ enum RecallTab: Hashable {
 struct RootView: View {
     @State private var selectedTab: RecallTab = .decks
     @State private var importURL: URL?
+    @State private var showingDesignLab = false
     @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("designLabTaps") private var designLabTaps = 0
 
     private var colorScheme: ColorScheme? {
         switch appearance {
@@ -31,5 +33,13 @@ struct RootView: View {
             importURL = url
         }
         .sheet(item: $importURL) { url in ImportLinkView(url: url) }
+        .sheet(isPresented: $showingDesignLab) { DesignLabView() }
+        .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in
+            designLabTaps += 1
+            if designLabTaps >= 7 {
+                designLabTaps = 0
+                showingDesignLab = true
+            }
+        })
     }
 }

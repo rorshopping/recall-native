@@ -54,11 +54,49 @@ struct LocalAIService: OnDeviceAIService {
     func generateFlashcards(from text: String) async throws -> GeneratedDeck {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw AIServiceError.emptyInput }
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            do {
+                let data = try await AppleOnDeviceAIService().generateJSON(
+                    instruction: "Generate the requested flashcard deck from the supplied study material.",
+                    systemPrompt: Self.systemPrompt,
+                    source: cleaned
+                )
+                return try Self.parseDeckData(data, errorPrefix: "The on-device model")
+            } catch AppleOnDeviceAIService.ServiceError.unavailable {
+                // Fall through to Gemma when Apple's model is unavailable.
+            } catch {
+                // Any Apple generation or parsing failure falls back to Gemma.
+            }
+        }
+        #endif
+
+        return try await generateWithGemma(from: cleaned)
+    }
+
+    private func generateWithGemma(from text: String) async throws -> GeneratedDeck {
         guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
         do {
             let engine = RecallLiteRTEngine(modelPath: modelURL.path)
-            let raw = try await engine.generateDeckJSON(topic: cleaned, systemPrompt: Self.systemPrompt)
-            return try Self.parseDeck(raw)
+            var lastError: Error?
+            for attempt in 0..<2 {
+                do {
+                    let topic = attempt == 0 ? text : text + "\n\nReturn ONLY valid JSON. Do not include markdown, prose, or code fences."
+                    let prompt = attempt == 0 ? Self.systemPrompt : Self.systemPrompt + "\n\nIMPORTANT: Your previous response was invalid. Retry with only valid JSON matching the requested schema."
+                    let raw = try await engine.generateDeckJSON(topic: topic, systemPrompt: prompt)
+                    do {
+                        return try Self.parseDeck(raw)
+                    } catch {
+                        lastError = error
+                        if attempt == 1 { throw error }
+                    }
+                } catch {
+                    lastError = error
+                    if attempt == 1 { throw error }
+                }
+            }
+            throw lastError ?? AIServiceError.generationFailed("Gemma 4 could not generate cards.")
         } catch let error as AIServiceError {
             throw error
         } catch {
@@ -67,9 +105,15 @@ struct LocalAIService: OnDeviceAIService {
     }
 
     private static func parseDeck(_ raw: String) throws -> GeneratedDeck {
-        let normalized = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = normalized.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let cards = object["cards"] as? [[String: Any]] else {
+        guard let data = raw.data(using: .utf8) else {
             throw AIServiceError.generationFailed("Gemma 4 returned an invalid flashcard deck. Please try again.")
+        }
+        return try parseDeckData(data, errorPrefix: "Gemma 4")
+    }
+
+    private static func parseDeckData(_ data: Data, errorPrefix: String) throws -> GeneratedDeck {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let cards = object["cards"] as? [[String: Any]] else {
+            throw AIServiceError.generationFailed("\(errorPrefix) returned an invalid flashcard deck. Please try again.")
         }
         let parsed = cards.compactMap { card -> GeneratedCard? in
             guard let front = card["front"] as? String, let back = card["back"] as? String else { return nil }

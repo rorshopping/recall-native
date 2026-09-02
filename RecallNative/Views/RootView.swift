@@ -39,7 +39,6 @@ struct RootView: View {
         let hasEnoughReviews = offerReviews.count >= 3
         let hasStudyHistory = !offerReviews.isEmpty
         let studiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
-        // Match the original value-earned trigger: any meaningful engagement milestone is sufficient.
         return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory || studiedToday
     }
     var body: some View {
@@ -59,7 +58,7 @@ struct RootView: View {
         .onOpenURL { url in guard ["recall", "recall-flashcards"].contains(url.scheme?.lowercased()), url.host?.lowercased() == "import" else { return }; importURL = ImportURLItem(url: url) }
         .sheet(item: $importURL) { item in ImportLinkView(url: item.url) }
         .sheet(isPresented: $showingDesignLab) { DesignLabView() }
-        .sheet(isPresented: $showingLaunchOffer) { LaunchOfferView() }
+        .sheet(isPresented: $showingLaunchOffer, onDismiss: { launchOfferDismissed = true }) { LaunchOfferView() }
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in designLabTaps += 1; if designLabTaps >= 7 { designLabTaps = 0; showingDesignLab = true } })
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in lastBackgroundedAt = Date() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in let elapsed = lastBackgroundedAt.map { Date().timeIntervalSince($0) } ?? .infinity; guard elapsed > BiometricLockService.gracePeriod else { return }; Task { await checkAndLock() } }

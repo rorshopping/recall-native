@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct StatsView: View {
-    @Query(sort: \\ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
+    @Query(sort: \ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
     @Query private var cards: [Flashcard]
     @Query private var decks: [Deck]
     @AppStorage("dailyGoal") private var dailyGoal = 20
@@ -33,7 +33,7 @@ struct StatsView: View {
         return Int((maturity / Double(cards.count) * 100).rounded())
     }
     private var dueCount: Int { cards.filter { !$0.isNew && $0.isDue }.count }
-    private var newCount: Int { cards.filter(\\.isNew).count }
+    private var newCount: Int { cards.filter(\.isNew).count }
     private var week: [(label: String, count: Int, today: Bool)] {
         (0..<7).reversed().map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: .now) ?? .now
@@ -266,10 +266,10 @@ private struct GoalRing: View {
 }
 private struct WeeklyBars: View {
     let values: [(label: String, count: Int, today: Bool)]
-    private var maxValue: Int { max(1, values.map(\\.count).max() ?? 1) }
+    private var maxValue: Int { max(1, values.map(\.count).max() ?? 1) }
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            ForEach(Array(values.enumerated()), id: \\.offset) { _, item in
+            ForEach(Array(values.enumerated()), id: \.offset) { _, item in
                 VStack(spacing: 6) {
                     Spacer(minLength: 0)
                     RoundedRectangle(cornerRadius: 6).fill(item.today ? RecallTheme.accent : .secondary.opacity(item.count > 0 ? 0.5 : 0.12)).frame(height: max(5, CGFloat(item.count) / CGFloat(maxValue) * 90))

@@ -31,6 +31,10 @@ targets:
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_CFBundleDisplayName: Recall Native
       INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+      # Provide a launch screen so the iOS scene gets a real UIWindow frame
+      # sized to the device's full screen. Without this, some iOS 26 builds
+      # boot the app into a smaller window with black bars top/bottom.
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
       CODE_SIGN_ENTITLEMENTS: RecallNative/RecallNative.entitlements
     dependencies:
       - package: RecallOnDeviceAI

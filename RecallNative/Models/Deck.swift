@@ -34,7 +34,7 @@ final class Deck {
         return min(max(0, newLimit - used), newCount)
     }
 
-    private static let dayFormatter: ISO8601DateFormatter = {
+    nonisolated(unsafe) private static let dayFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
         return formatter

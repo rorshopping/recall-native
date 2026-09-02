@@ -29,6 +29,7 @@
 		85AFBAEEB39A27535EDF8EE6 /* ReviewLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009AD96D861D05CD22422C70 /* ReviewLog.swift */; };
 		92983EE6184A573DD9EF7DA7 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022F42BFF60064E8D780D07A /* SubscriptionService.swift */; };
 		99B38AB73DA55BD81868C386 /* ImportLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22B86656F8B2BD5A6C2FC12F /* ImportLinkView.swift */; };
+		9A7281B60C4C7F3C7930E2D4 /* ReviewSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82FF4C882130796B9F605A43 /* ReviewSessionService.swift */; };
 		9F3AC1E5F21C767CFF627E62 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281716E4A5D314CFC50A211D /* PaywallView.swift */; };
 		A894C1AA6A6B73A0F9628ECD /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA47EA1D6B4AE2B61D83547 /* OnboardingView.swift */; };
 		AD870ABF43B6790888EB986C /* SpacedRepetitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */; };
@@ -78,6 +79,7 @@
 		54ACF5887739C488957A86C6 /* EntitlementRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementRules.swift; sourceTree = "<group>"; };
 		58980CCCFA098CB4ACA1BD71 /* RecallNative.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RecallNative.entitlements; sourceTree = "<group>"; };
 		6549B5AD00E34A1D40A5722E /* DesignLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignLabView.swift; sourceTree = "<group>"; };
+		82FF4C882130796B9F605A43 /* ReviewSessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSessionService.swift; sourceTree = "<group>"; };
 		89887E488B29F7232CD90DF8 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		AFB508974A515913664B3EC5 /* Deck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deck.swift; sourceTree = "<group>"; };
@@ -210,6 +212,7 @@
 				46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */,
 				1F5C2A09E6D8FBE7C608759D /* LiteRTModelStore.swift */,
 				FC18D3AB0DD47A1620E98A02 /* OnDeviceAIService.swift */,
+				82FF4C882130796B9F605A43 /* ReviewSessionService.swift */,
 				ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */,
 				022F42BFF60064E8D780D07A /* SubscriptionService.swift */,
 			);
@@ -328,6 +331,7 @@
 				0421AD069665DDDEF6995E3C /* RecallNativeApp.swift in Sources */,
 				DF96E5090623E945C590CE99 /* RecallTheme.swift in Sources */,
 				85AFBAEEB39A27535EDF8EE6 /* ReviewLog.swift in Sources */,
+				9A7281B60C4C7F3C7930E2D4 /* ReviewSessionService.swift in Sources */,
 				234AF32114D74E076A0E2AC2 /* ReviewView.swift in Sources */,
 				8112F756F8A93B82760A3EC3 /* RootView.swift in Sources */,
 				775FD6BEF8742C08EDBB6A40 /* SettingsView.swift in Sources */,

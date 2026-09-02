@@ -75,7 +75,8 @@ enum BackupService {
     }
     static func restore(_ data:Data,context:ModelContext,replaceExisting:Bool=false) throws {
         let backup=try validate(data)
-        if !replaceExisting { let existingDeckIDs=Set(try context.fetch(FetchDescriptor<Deck>()).map(\.id)); let existingCardIDs=Set(try context.fetch(FetchDescriptor<Flashcard>()).map(\.id)); if !existingDeckIDs.isDisjoint(with:backup.decks.map(\.id)) || !existingCardIDs.isDisjoint(with:backup.cards.map(\.id)) { throw BackupError.idCollision } }
+        UsageMetricsStore.suppressNextCreationDelta()
+        if !replaceExisting { let existingDeckIDs=Set(try context.fetch(FetchDescriptor<Deck>()).map(\.id)); let existingCardIDs=Set(try context.fetch(FetchDescriptor<Flashcard>()).map(\.id)); if !existingDeckIDs.isDisjoint(with:backup.decks.map(\.id)) || !existingCardIDs.isDisjoint(with:backup.cards.map(\.id)) { UsageMetricsStore.clear(); throw BackupError.idCollision } }
         else { try context.fetch(FetchDescriptor<ReviewLog>()).forEach(context.delete); try context.fetch(FetchDescriptor<Flashcard>()).forEach(context.delete); try context.fetch(FetchDescriptor<Deck>()).forEach(context.delete) }
         var deckMap:[UUID:Deck]=[:]
         for r in backup.decks { let d=Deck(name:r.name,emoji:r.emoji); d.id=r.id; d.createdAt=r.createdAt; d.newLimit=r.newLimit; d.newDay=r.newDay.isEmpty ? nil : r.newDay; d.newStudiedToday=r.newStudiedToday; context.insert(d); deckMap[r.id]=d }

@@ -41,6 +41,7 @@ struct CreateView: View {
     private let modelStore = LiteRTModelStore.shared
 
     private var activeMode: CreateMode { moreWaysExpanded ? advancedMode : primaryMode }
+    private var aiProvider: OnDeviceAIProvider { OnDeviceAIProvider.current(gemmaAvailable: modelAvailable) }
 
     var body: some View {
         NavigationStack {
@@ -70,10 +71,10 @@ struct CreateView: View {
                     }
                     RecallCard {
                         VStack(alignment: .leading, spacing: 12) {
-                            HStack { Image(systemName: "sparkles").foregroundStyle(RecallTheme.accent); Text("On-device AI").font(.headline); Spacer(); if modelAvailable { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) } }
-                            Text(modelAvailable ? "Gemma 4 is ready. Nothing leaves your iPhone." : "Download the ~2.6 GB model once. Generation then runs locally.").font(.subheadline).foregroundStyle(.secondary)
-                            if isDownloadingModel { ProgressView(value: downloadProgress.fraction); HStack { Text("Downloading"); Spacer(); Text("\(Int(downloadProgress.fraction * 100))%") }.font(.caption.weight(.medium)); HStack { Text(formatBytes(downloadProgress.bytesWritten)); Text("of"); Text(formatBytes(downloadProgress.totalBytes)); Spacer() }.font(.caption).foregroundStyle(.secondary) }
-                            else if !modelAvailable { Button("Download Gemma 4", systemImage: "arrow.down.circle.fill") { downloadModel() }.buttonStyle(.borderedProminent).controlSize(.large) }
+                            HStack { Image(systemName: aiProvider.systemImage).foregroundStyle(RecallTheme.accent); Text("On-device AI").font(.headline); Spacer(); if aiProvider.isAvailable { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) } }
+                            Text(aiProvider.detail).font(.subheadline).foregroundStyle(.secondary)
+                            if isDownloadingModel { ProgressView(value: downloadProgress.fraction); HStack { Text("Downloading Gemma 4"); Spacer(); Text("\(Int(downloadProgress.fraction * 100))%") }.font(.caption.weight(.medium)); HStack { Text(formatBytes(downloadProgress.bytesWritten)); Text("of"); Text(formatBytes(downloadProgress.totalBytes)); Spacer() }.font(.caption).foregroundStyle(.secondary) }
+                            else if !aiProvider.isAvailable { Button("Download Gemma 4", systemImage: "arrow.down.circle.fill") { downloadModel() }.buttonStyle(.borderedProminent).controlSize(.large) }
                         }
                     }
                     Button { moreWaysExpanded.toggle() } label: { HStack { VStack(alignment: .leading, spacing: 3) { Text("More ways to study").font(.headline); Text(moreWaysExpanded ? "Ask & Explain · uses your material · on device" : "Ask & Explain · tap to expand").font(.caption).foregroundStyle(.secondary) }; Spacer(); Image(systemName: moreWaysExpanded ? "chevron.down" : "chevron.right").foregroundStyle(.secondary) } }.buttonStyle(.plain)
@@ -85,7 +86,7 @@ struct CreateView: View {
                         }
                     }
                     Button { generate() } label: { Label(isGenerating ? "Generating..." : activeMode == .flashcards ? "Create flashcards" : "Generate \(activeMode.rawValue)", systemImage: activeMode.icon).frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!canGenerate || isGenerating)
-                    if isGenerating { RecallCard { HStack(spacing: 12) { ProgressView(); VStack(alignment: .leading) { Text("Running on device").font(.headline); Text("Gemma 4 is generating your result.").font(.caption).foregroundStyle(.secondary) } } } }
+                    if isGenerating { RecallCard { HStack(spacing: 12) { ProgressView(); VStack(alignment: .leading) { Text("Running on device").font(.headline); Text("\(aiProvider.displayName) is generating your result.").font(.caption).foregroundStyle(.secondary) } } } }
                     if !generated.isEmpty { FlashcardResult(cards: generated, save: { if canSaveGenerated { deckName = deckName.isEmpty ? (generatedDeckName.isEmpty ? suggestedDeckName : generatedDeckName) : deckName; showingSave = true } else { showingPaywall = true } }, dismiss: { generated = []; generatedDeckName = "" }) }
                     if let resultObject, let resultMode, generated.isEmpty { AdvancedResult(mode: resultMode, data: resultObject, dismiss: { self.resultObject = nil; self.resultMode = nil }) }
                     if !isGenerating { Text("🔒 Everything runs on device").font(.caption.weight(.semibold)).frame(maxWidth: .infinity).foregroundStyle(.secondary); Text("Nothing leaves your iPhone. Outputs may be inaccurate, so verify against your source.").font(.caption2).frame(maxWidth: .infinity).foregroundStyle(.tertiary).multilineTextAlignment(.center) }
@@ -103,7 +104,7 @@ struct CreateView: View {
         }
     }
 
-    private var canGenerate: Bool { guard modelAvailable, !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }; if activeMode == .ask { return !askInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; if activeMode == .explain { return !explainInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; return true }
+    private var canGenerate: Bool { guard aiProvider.isAvailable, !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }; if activeMode == .ask { return !askInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; if activeMode == .explain { return !explainInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; return true }
     private var canSaveGenerated: Bool {
         if let selectedDeckID, let deck = decks.first(where: { $0.id == selectedDeckID }) { return subscriptions.isPremium || deck.cards.count + generated.count <= EntitlementRules.freeCardLimitPerDeck }
         return EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) && (subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck)
@@ -120,7 +121,7 @@ struct CreateView: View {
         guard !focus.isEmpty, !sourceName.isEmpty else { return sourceText }
         return "Focus topic: \(focus)\n\nSource material:\n\(sourceText)"
     }
-    private func generate() { guard !isGenerating else { return }; let mode = activeMode; isGenerating = true; generated = []; generatedDeckName = ""; resultObject = nil; resultMode = nil; Task { @MainActor in do { let source = generationSource(); if mode == .flashcards { let result = try await ai.generateFlashcards(from: source); generated = result.cards; generatedDeckName = result.name } else { let data = try await advancedAI.generateJSON(instruction: instruction(for: mode), systemPrompt: prompt(for: mode), source: source); guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIServiceError.generationFailed("Gemma 4 returned an invalid result.") }; resultObject = object; resultMode = mode } } catch { errorMessage = error.localizedDescription }; isGenerating = false } }
+    private func generate() { guard !isGenerating else { return }; let mode = activeMode; isGenerating = true; generated = []; generatedDeckName = ""; resultObject = nil; resultMode = nil; Task { @MainActor in do { let source = generationSource(); if mode == .flashcards { let result = try await ai.generateFlashcards(from: source); generated = result.cards; generatedDeckName = result.name } else { let data = try await advancedAI.generateJSON(instruction: instruction(for: mode), systemPrompt: prompt(for: mode), source: source); guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIServiceError.generationFailed("On-device AI returned an invalid result.") }; resultObject = object; resultMode = mode } } catch { errorMessage = error.localizedDescription }; isGenerating = false } }
     private func instruction(for mode: CreateMode) -> String { switch mode { case .guide: return "Create a concise study guide."; case .exam: return "Create a 10-question practice exam."; case .ask: return "Answer this question: \(askInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .explain: return "Explain this concept simply: \(explainInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .flashcards: return "Create flashcards." } }
     private func prompt(for mode: CreateMode) -> String { switch mode { case .guide: return "Return ONLY JSON: {\"title\":\"Study guide title\",\"overview\":\"2-4 sentence overview\",\"sections\":[{\"title\":\"Section\",\"summary\":\"Summary\",\"keyPoints\":[\"Point\"],\"keyTerms\":[{\"term\":\"Term\",\"definition\":\"Definition\"}]}],\"takeaways\":[\"Takeaway\"]}. Use 3-8 sections. Every factual claim must be supported by the source. Do not invent facts."; case .exam: return "Return ONLY JSON: {\"title\":\"Practice exam\",\"instructions\":\"Short instructions\",\"questions\":[{\"question\":\"Question\",\"type\":\"multiple_choice\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctIndex\":0,\"answer\":\"Answer\",\"explanation\":\"Explanation\"}]}. Create 10 questions, mixing multiple choice, true/false and short answer."; case .ask: return "Return ONLY JSON: {\"answer\":\"Concise answer\",\"citations\":[\"Supporting fact\"]}. Use only the supplied material. If absent, say \"I couldn't find this in your material\" and do not invent."; case .explain: return "Return ONLY JSON: {\"concept\":\"Concept\",\"explanation\":\"Simple explanation\",\"analogy\":\"Optional analogy\",\"keyPoints\":[\"Point\"]}. Use the supplied material. If the concept is not clearly covered, say so and clearly label any general explanation as such. Use plain language."; case .flashcards: return "" } }
     private func saveGeneratedCards() {

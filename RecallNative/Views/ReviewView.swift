@@ -79,6 +79,7 @@ struct ReviewView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { audio.stop(); dismiss() }
+                        .accessibilityIdentifier("review.done")
                 }
             }
         }
@@ -95,6 +96,8 @@ struct ReviewView: View {
                 Text("\(session.progress) / \(max(session.total, 1))").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
             }
             ProgressView(value: Double(session.progress), total: Double(max(session.total, 1))).tint(RecallTheme.accent)
+                .accessibilityLabel("Review progress")
+                .accessibilityValue("\(session.progress) of \(max(session.total, 1))")
 
             RecallCard {
                 VStack(alignment: .leading, spacing: 14) {
@@ -130,6 +133,9 @@ struct ReviewView: View {
                         }
                     }
             )
+            .accessibilityIdentifier("review.card")
+            .accessibilityLabel(revealed ? "Answer" : "Question")
+            .accessibilityValue(displayText(for: card))
             .accessibilityHint(revealed ? "Swipe right for Good, left for Again, up for Easy, or down for Hard." : "Tap to reveal the answer.")
 
             if revealed && !card.hint.isEmpty { Text("Hint: \(card.hint)").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: 760, alignment: .leading) }
@@ -177,6 +183,8 @@ struct ReviewView: View {
                 #endif
             } else if mediaType == "audio" {
                 Button { audio.toggle(url: url) } label: { Label(audio.isPlaying ? "Pause audio" : "Play audio", systemImage: audio.isPlaying ? "pause.circle.fill" : "play.circle.fill").frame(maxWidth: .infinity) }.buttonStyle(.bordered).controlSize(.large)
+                    .accessibilityIdentifier("review.audio")
+                    .accessibilityHint("Plays or pauses the card audio.")
             }
         }
     }
@@ -209,9 +217,11 @@ struct ReviewView: View {
                 .textFieldStyle(.roundedBorder)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .accessibilityIdentifier("review.answerInput")
                 .onSubmit(checkTyped)
             if let typeChecked { Text(typeChecked ? "✓ Correct" : "✗ Answer: \(card.answer)").font(.subheadline.weight(.semibold)).foregroundStyle(typeChecked ? .green : .red) }
             Button("Check", action: checkTyped).buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("review.checkAnswer")
             if typeChecked != nil { ratings(for: card) }
         }.frame(maxWidth: 760)
     }
@@ -238,7 +248,9 @@ struct ReviewView: View {
             }.frame(maxWidth: 520)
             ratingSummary
             Button("Study again", action: restart).buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("review.studyAgain")
             Button("Done") { dismiss() }.buttonStyle(.bordered)
+                .accessibilityIdentifier("review.completionDone")
         }.padding(32)
     }
 
@@ -398,6 +410,7 @@ private struct RatingButton: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.small)
         .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("review.rate.\(title.lowercased())")
         .accessibilityLabel("\(title), \(subtitle)")
         .accessibilityHint("Rate this card as \(title).")
     }

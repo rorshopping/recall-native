@@ -81,6 +81,22 @@ struct RecallNativeTests {
         #expect(dueReview.statusTitle == "Due now")
     }
 
+    @Test func deckDailyNewCardCounterRollsOverByCalendarDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let dayOne = calendar.date(from: DateComponents(year: 2026, month: 9, day: 1))!
+        let dayTwo = calendar.date(byAdding: .day, value: 1, to: dayOne)!
+        let deck = Deck(name: "Test")
+
+        deck.recordNewCardStudy(on: dayOne.addingTimeInterval(3_600), calendar: calendar)
+        deck.recordNewCardStudy(on: dayOne.addingTimeInterval(7_200), calendar: calendar)
+        #expect(deck.newStudiedToday == 2)
+
+        deck.recordNewCardStudy(on: dayTwo.addingTimeInterval(3_600), calendar: calendar)
+        #expect(deck.newStudiedToday == 1)
+        #expect(deck.newDay != nil)
+    }
+
     @Test func importedDeckPreservesCardMetadata() throws {
         let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
         let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))

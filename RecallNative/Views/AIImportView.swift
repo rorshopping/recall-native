@@ -11,6 +11,7 @@ struct AIImportView: View {
     @State private var json = ""
     @State private var copied = false
     @State private var showingImporter = false
+    @State private var showingAIInbox = false
     @State private var errorMessage: String?
     @State private var showingSuccess = false
     @State private var showingDeckDetail = false
@@ -41,6 +42,10 @@ Rules:
                 Section("Generate with AI") {
                     Text("Use any AI you already have. Recall does not need an API key and your material stays on this device.")
                         .font(.subheadline).foregroundStyle(.secondary)
+                    Button("Open AI inbox", systemImage: "tray.and.arrow.down") { showingAIInbox = true }
+                        .buttonStyle(.borderedProminent)
+                    Text("Add multiple PDFs or images and let Recall process them sequentially in the background while you keep using the app.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("1. Copy the prompt") {
                     Button(copied ? "Copied" : "Copy the prompt", systemImage: copied ? "checkmark" : "doc.on.doc") {
@@ -77,31 +82,23 @@ Rules:
                 do { json = try String(contentsOf: url, encoding: .utf8) }
                 catch { errorMessage = "Could not read that JSON file." }
             }
+            .sheet(isPresented: $showingAIInbox) { AIImportQueueView() }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .sheet(isPresented: $showingDeckDetail) {
-                if let importedDeck {
-                    DeckDetailView(deck: importedDeck)
-                }
+                if let importedDeck { DeckDetailView(deck: importedDeck) }
             }
             .alert("Could not import", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") {} } message: { Text(errorMessage ?? "") }
             .alert("Deck created", isPresented: $showingSuccess) {
-                Button("Open") {
-                    showingDeckDetail = importedDeck != nil
-                }
+                Button("Open") { showingDeckDetail = importedDeck != nil }
                 Button("Done") { dismiss() }
-            } message: {
-                Text("\(importedName) · \(importedCount) cards added.")
-            }
+            } message: { Text("\(importedName) · \(importedCount) cards added.") }
         }
     }
 
     private func createDeck() {
         do {
             let parsed = try DeckImportService.parse(Data(json.utf8))
-            guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else {
-                showingPaywall = true
-                return
-            }
+            guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else { showingPaywall = true; return }
             if !subscriptions.isPremium && parsed.cards.count > EntitlementRules.freeCardLimitPerDeck {
                 errorMessage = "The free plan supports up to \(EntitlementRules.freeCardLimitPerDeck) cards per deck. Unlock Recall Full to import this deck."
                 showingPaywall = true
@@ -118,8 +115,6 @@ Rules:
             importedCount = parsed.cards.count
             json = ""
             showingSuccess = true
-        } catch {
-            errorMessage = "Paste valid JSON in the supported { deck, cards } format."
-        }
+        } catch { errorMessage = "Paste valid JSON in the supported { deck, cards } format." }
     }
 }

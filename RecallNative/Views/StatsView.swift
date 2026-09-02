@@ -11,7 +11,7 @@ struct StatsView: View {
     private var calendar: Calendar { Calendar.current }
     private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, calendar: calendar) }
     private var todayReviews: Int { metrics.count(on: .now) }
-    private var currentStreak: Int { metrics.streak(endingOn: .now) }
+    private var currentStreak: Int { metrics.activeStreak(endingOn: .now) }
     private var streakAtRisk: Bool { currentStreak > 0 && todayReviews == 0 }
     private var mastery: Int {
         guard !cards.isEmpty else { return 0 }

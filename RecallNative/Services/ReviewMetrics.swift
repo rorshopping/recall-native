@@ -39,6 +39,36 @@ struct ReviewMetrics {
         return Int((Double(positive) / Double(reviews.count) * 100).rounded())
     }
 
+    /// Percentage for one rating, rounded to the nearest whole number.
+    func ratingPercentage(_ rating: Int) -> Int {
+        guard total > 0 else { return 0 }
+        return Int((Double(ratingCounts[rating, default: 0]) / Double(total) * 100).rounded())
+    }
+
+    /// Number of reviews in the trailing calendar-day window ending on `date`.
+    /// A value of one counts only the calendar day containing `date`.
+    func count(inLastDays days: Int, endingOn date: Date = .now) -> Int {
+        guard days > 0 else { return 0 }
+        let end = calendar.startOfDay(for: date)
+        let start = calendar.date(byAdding: .day, value: -(days - 1), to: end) ?? end
+        return count(from: start, through: end)
+    }
+
+    /// Number of consecutive calendar days with at least one review, ending on `date`.
+    /// If there was no review on `date`, the streak is zero.
+    func streak(endingOn date: Date = .now) -> Int {
+        var day = calendar.startOfDay(for: date)
+        guard dailyCounts[day, default: 0] > 0 else { return 0 }
+
+        var result = 0
+        while dailyCounts[day, default: 0] > 0 {
+            result += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previous
+        }
+        return result
+    }
+
     /// Number of reviews between two calendar days, inclusive.
     func count(from start: Date, through end: Date) -> Int {
         let lower = calendar.startOfDay(for: start)

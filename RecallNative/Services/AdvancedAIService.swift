@@ -13,9 +13,6 @@ struct AdvancedAIService: Sendable {
         let prompt = systemPrompt + "\n\nSOURCE MATERIAL:\n" + material + "\n\nTASK:\n" + instruction
         let engine = RecallLiteRTEngine(modelPath: modelURL.path)
 
-        // Local models occasionally wrap JSON in prose or return one malformed
-        // escape. Match Recall's one-retry behavior instead of making the user
-        // regenerate manually.
         var lastJSONError: Error?
         for attempt in 0..<2 {
             do {
@@ -45,11 +42,26 @@ struct AdvancedAIService: Sendable {
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let data = cleaned.data(using: .utf8), JSONSerialization.isValidJSONObject(try? JSONSerialization.jsonObject(with: data) ?? NSNull()) { return data }
+        if let data = cleaned.data(using: .utf8) {
+            do {
+                let object = try JSONSerialization.jsonObject(with: data)
+                if JSONSerialization.isValidJSONObject(object) { return data }
+            } catch {
+                // Try extracting and repairing a JSON object below.
+            }
+        }
         guard let start = cleaned.firstIndex(of: "{"), let end = cleaned.lastIndex(of: "}"), start < end else { throw AIServiceError.generationFailed("Gemma 4 returned no usable JSON. Please try again.") }
         let slice = String(cleaned[start...end])
         let fixed = slice.replacingOccurrences(of: #"\\(?![\"\\/bfnrtu])"#, with: #"\\\\"#, options: .regularExpression).replacingOccurrences(of: #",\s*([}\]])"#, with: #"$1"#, options: .regularExpression)
-        guard let data = fixed.data(using: .utf8), JSONSerialization.isValidJSONObject(try? JSONSerialization.jsonObject(with: data) ?? NSNull()) else { throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON. Please try again.") }
-        return data
+        guard let data = fixed.data(using: .utf8) else { throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON. Please try again.") }
+        do {
+            let object = try JSONSerialization.jsonObject(with: data)
+            guard JSONSerialization.isValidJSONObject(object) else { throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON. Please try again.") }
+            return data
+        } catch let error as AIServiceError {
+            throw error
+        } catch {
+            throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON. Please try again.")
+        }
     }
 }

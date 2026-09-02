@@ -1,5 +1,6 @@
 import UIKit
 
+@MainActor
 enum HapticsService {
     static func grade(_ grade: Int) {
         let enabled = UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true

@@ -128,27 +128,78 @@ struct StatsView: View {
     }
 }
 
+private enum ReviewHistoryFilter: String, CaseIterable, Identifiable {
+    case all, again, hard, good, easy
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .all: return "All"
+        case .again: return "Again"
+        case .hard: return "Hard"
+        case .good: return "Good"
+        case .easy: return "Easy"
+        }
+    }
+    var rating: Int? {
+        switch self {
+        case .all: return nil
+        case .again: return 1
+        case .hard: return 2
+        case .good: return 3
+        case .easy: return 4
+        }
+    }
+}
+
 private struct ReviewHistoryView: View {
     @Environment(\\.dismiss) private var dismiss
     let reviews: [ReviewLog]
+    @State private var searchText = ""
+    @State private var filter: ReviewHistoryFilter = .all
+
+    private var filteredReviews: [ReviewLog] {
+        reviews.filter { review in
+            let matchesRating = filter.rating.map { review.rating == $0 } ?? true
+            guard matchesRating else { return false }
+            guard !searchText.isEmpty else { return true }
+            let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+            return (review.card?.question.localizedLowercase.contains(query) ?? false) ||
+                (review.card?.answer.localizedLowercase.contains(query) ?? false)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if reviews.isEmpty {
                     ContentUnavailableView("No reviews yet", systemImage: "clock.arrow.circlepath", description: Text("Your completed reviews will appear here."))
+                } else if filteredReviews.isEmpty {
+                    ContentUnavailableView("No matching reviews", systemImage: "magnifyingglass", description: Text("Try another search or rating filter."))
                 } else {
                     List {
-                        ForEach(reviews) { review in
+                        ForEach(filteredReviews) { review in
                             ReviewHistoryRow(review: review)
                         }
                     }
                     .listStyle(.plain)
                 }
             }
+            .searchable(text: $searchText, prompt: "Search cards")
             .navigationTitle("Review history")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        Picker("Rating", selection: $filter) {
+                            ForEach(ReviewHistoryFilter.allCases) { item in
+                                Text(item.title).tag(item)
+                            }
+                        }
+                    } label: {
+                        Label(filter.title, systemImage: filter == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                    }
+                    .accessibilityLabel("Filter reviews by rating")
+                }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
         }
@@ -157,7 +208,6 @@ private struct ReviewHistoryView: View {
 
 private struct ReviewHistoryRow: View {
     let review: ReviewLog
-
     private var ratingTitle: String {
         switch review.rating {
         case 1: return "Again"
@@ -167,18 +217,11 @@ private struct ReviewHistoryRow: View {
         default: return "Review"
         }
     }
-
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: ratingIcon)
-                .font(.headline)
-                .foregroundStyle(ratingColor)
-                .frame(width: 30, height: 30)
-                .background(ratingColor.opacity(0.12), in: Circle())
+            Image(systemName: ratingIcon).font(.headline).foregroundStyle(ratingColor).frame(width: 30, height: 30).background(ratingColor.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(review.card?.question ?? "Card no longer available")
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
+                Text(review.card?.question ?? "Card no longer available").font(.subheadline.weight(.semibold)).lineLimit(2)
                 HStack(spacing: 6) {
                     Text(ratingTitle).font(.caption.weight(.medium)).foregroundStyle(ratingColor)
                     Text("·").foregroundStyle(.tertiary)
@@ -191,7 +234,6 @@ private struct ReviewHistoryRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\\(ratingTitle), \\(review.card?.question ?? "card no longer available"), \\(review.reviewedAt.formatted(date: .abbreviated, time: .shortened))")
     }
-
     private var ratingIcon: String {
         switch review.rating {
         case 1: return "arrow.uturn.backward"
@@ -201,7 +243,6 @@ private struct ReviewHistoryRow: View {
         default: return "checkmark.circle"
         }
     }
-
     private var ratingColor: Color {
         switch review.rating {
         case 1: return .red

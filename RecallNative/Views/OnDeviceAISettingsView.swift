@@ -6,6 +6,9 @@ struct OnDeviceAISettingsView: View {
     @State private var isDownloading = false
     @State private var progress: ModelDownloadProgress?
     @State private var errorMessage: String?
+    @State private var showingRemoveConfirmation = false
+
+    private let modelSize = "2.59 GB"
 
     var body: some View {
         NavigationStack {
@@ -14,11 +17,9 @@ struct OnDeviceAISettingsView: View {
                     HStack {
                         Label(isInstalled ? "Ready on this iPhone" : "Not downloaded", systemImage: isInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
                         Spacer()
-                        if isInstalled {
-                            Text("2.59 GB")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(modelSize)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     if isDownloading {
@@ -33,11 +34,13 @@ struct OnDeviceAISettingsView: View {
                             }
                             .font(.caption)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Downloading Gemma 4, \(progressText)")
                     } else if !isInstalled {
                         Button("Download Gemma 4", systemImage: "arrow.down.circle.fill") {
                             startDownload()
                         }
-                        Text("The model is downloaded once and then runs entirely on-device. A Wi-Fi connection is recommended.")
+                        Text("The model is downloaded once and then runs entirely on-device. A Wi-Fi connection is recommended. The download is about \(modelSize).")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
@@ -45,10 +48,7 @@ struct OnDeviceAISettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Button("Remove downloaded model", systemImage: "trash", role: .destructive) {
-                            Task {
-                                await LiteRTModelStore.shared.deleteDownloadedModel()
-                                await refresh()
-                            }
+                            showingRemoveConfirmation = true
                         }
                     }
                 }
@@ -67,6 +67,17 @@ struct OnDeviceAISettingsView: View {
                 }
             }
             .task { await refresh() }
+            .confirmationDialog("Remove Gemma 4?", isPresented: $showingRemoveConfirmation, titleVisibility: .visible) {
+                Button("Remove Model", role: .destructive) {
+                    Task {
+                        await LiteRTModelStore.shared.deleteDownloadedModel()
+                        await refresh()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This frees about \(modelSize) of storage. You can download the model again later.")
+            }
             .alert("Model download failed", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK") {}
             } message: {

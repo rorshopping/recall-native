@@ -2,8 +2,16 @@ import Foundation
 import SwiftData
 
 struct RecallBackup: Codable {
-    struct DeckRecord: Codable { let id: UUID; let name: String; let emoji: String; let createdAt: Date; let newDay: String; let newStudiedToday: Int }
-    struct CardRecord {
+    struct DeckRecord: Codable {
+        let id: UUID
+        let name: String
+        let emoji: String
+        let createdAt: Date
+        let newLimit: Int
+        let newDay: String
+        let newStudiedToday: Int
+    }
+    struct CardRecord: Codable {
         let id: UUID; let question: String; let answer: String; let hint: String; let tags: String; let type: String; let typeInAnswer: Bool
         let mediaType: String?; let mediaURI: String?; let createdAt: Date; let dueAt: Date; let interval: Int; let ease: Double; let repetitions: Int
         let state: String; let step: Int; let lapses: Int; let againCount: Int; let hardCount: Int; let goodCount: Int; let easyCount: Int; let lastReviewedAt: Date?; let deckID: UUID
@@ -12,11 +20,11 @@ struct RecallBackup: Codable {
     let version: Int; let exportedAt: Date; let decks: [DeckRecord]; let cards: [CardRecord]; let reviews: [ReviewRecord]
 }
 
-extension RecallBackup.CardRecord: Codable {}
-
 enum BackupService {
     static func makeBackup(context: ModelContext) throws -> Data {
-        let decks = try context.fetch(FetchDescriptor<Deck>()).map { RecallBackup.DeckRecord(id: $0.id, name: $0.name, emoji: $0.emoji, createdAt: $0.createdAt, newDay: $0.newDay ?? "", newStudiedToday: $0.newStudiedToday) }
+        let decks = try context.fetch(FetchDescriptor<Deck>()).map {
+            RecallBackup.DeckRecord(id: $0.id, name: $0.name, emoji: $0.emoji, createdAt: $0.createdAt, newLimit: $0.newLimit, newDay: $0.newDay ?? "", newStudiedToday: $0.newStudiedToday)
+        }
         let cards = try context.fetch(FetchDescriptor<Flashcard>()).compactMap { card -> RecallBackup.CardRecord? in
             guard let deckID = card.deck?.id else { return nil }
             return .init(id: card.id, question: card.question, answer: card.answer, hint: card.hint, tags: card.tags, type: card.type, typeInAnswer: card.typeInAnswer, mediaType: card.mediaType, mediaURI: card.mediaURI, createdAt: card.createdAt, dueAt: card.dueAt, interval: card.interval, ease: card.ease, repetitions: card.repetitions, state: card.state, step: card.step, lapses: card.lapses, againCount: card.againCount, hardCount: card.hardCount, goodCount: card.goodCount, easyCount: card.easyCount, lastReviewedAt: card.lastReviewedAt, deckID: deckID)
@@ -34,6 +42,7 @@ enum BackupService {
         let backup = try decoder.decode(RecallBackup.self, from: data)
         guard backup.version == 1 else { throw BackupError.unsupportedVersion }
         guard backup.decks.count <= 1000, backup.cards.count <= 100_000, backup.reviews.count <= 1_000_000 else { throw BackupError.invalidSize }
+        guard backup.decks.allSatisfy({ $0.newLimit >= 0 && $0.newLimit <= 1000 }) else { throw BackupError.invalidDeckLimit }
         guard Set(backup.decks.map(\.id)).count == backup.decks.count, Set(backup.cards.map(\.id)).count == backup.cards.count else { throw BackupError.duplicateIDs }
         let deckIDs = Set(backup.decks.map(\.id))
         guard backup.cards.allSatisfy({ deckIDs.contains($0.deckID) }) else { throw BackupError.orphanedCards }
@@ -55,7 +64,8 @@ enum BackupService {
         }
         var deckMap: [UUID: Deck] = [:]
         for record in backup.decks {
-            let deck = Deck(name: record.name, emoji: record.emoji); deck.id = record.id; deck.createdAt = record.createdAt; deck.newDay = record.newDay.isEmpty ? nil : record.newDay; deck.newStudiedToday = record.newStudiedToday
+            let deck = Deck(name: record.name, emoji: record.emoji)
+            deck.id = record.id; deck.createdAt = record.createdAt; deck.newLimit = record.newLimit; deck.newDay = record.newDay.isEmpty ? nil : record.newDay; deck.newStudiedToday = record.newStudiedToday
             context.insert(deck); deckMap[record.id] = deck
         }
         var cardMap: [UUID: Flashcard] = [:]
@@ -73,14 +83,15 @@ enum BackupService {
     }
 
 enum BackupError: LocalizedError {
-        case unsupportedVersion, invalidSize, duplicateIDs, orphanedCards, orphanedReviews, idCollision
-        var errorDescription: String? { switch self {
-        case .unsupportedVersion: return "This backup was created by an unsupported Recall version."
-        case .invalidSize: return "This backup is too large to import safely."
-        case .duplicateIDs: return "This backup contains duplicate records."
-        case .orphanedCards: return "This backup contains cards without a valid deck."
-        case .orphanedReviews: return "This backup contains reviews without a valid card."
-        case .idCollision: return "This backup contains records that already exist in your library. Choose replace-all restore instead."
-        } }
+    case unsupportedVersion, invalidSize, invalidDeckLimit, duplicateIDs, orphanedCards, orphanedReviews, idCollision
+    var errorDescription: String? { switch self {
+    case .unsupportedVersion: return "This backup was created by an unsupported Recall version."
+    case .invalidSize: return "This backup is too large to import safely."
+    case .invalidDeckLimit: return "This backup contains an invalid daily new-card limit."
+    case .duplicateIDs: return "This backup contains duplicate records."
+    case .orphanedCards: return "This backup contains cards without a valid deck."
+    case .orphanedReviews: return "This backup contains reviews without a valid card."
+    case .idCollision: return "This backup contains records that already exist in your library. Choose replace-all restore instead."
+    } }
     }
 }

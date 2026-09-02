@@ -28,7 +28,7 @@ enum AIServiceError: LocalizedError {
         switch self {
         case .emptyInput: return "Add some notes before generating cards."
         case .insufficientContent: return "There is not enough text to create useful cards."
-        case .modelMissing: return "Gemma 4 is not installed yet. Download the on-device model first."
+        case .modelMissing: return "No on-device AI backend is available. Enable Apple's on-device model or download Gemma 4."
         case .generationFailed(let message): return message
         }
     }

@@ -31,6 +31,13 @@ targets:
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_CFBundleDisplayName: Recall Native
       INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+      # Keep the native rewrite aligned with the original app's default
+      # orientation behavior instead of silently locking phones to portrait.
+      INFOPLIST_KEY_UISupportedInterfaceOrientations:
+        - UIInterfaceOrientationPortrait
+        - UIInterfaceOrientationPortraitUpsideDown
+        - UIInterfaceOrientationLandscapeLeft
+        - UIInterfaceOrientationLandscapeRight
       # Provide a launch screen so the iOS scene gets a real UIWindow frame
       # sized to the device's full screen. Without this, some iOS 26 builds
       # boot the app into a smaller window with black bars top/bottom.

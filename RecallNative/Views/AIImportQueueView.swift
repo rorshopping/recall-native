@@ -9,6 +9,7 @@ struct AIImportQueueView: View {
     @StateObject private var subscriptions = SubscriptionService()
     @State private var jobs: [AIImportQueue.Job] = []
     @State private var progress = AIImportQueue.ProgressSnapshot(completed: 0, total: 0, currentName: nil)
+    @State private var savingJobIDs: Set<UUID> = []
     @State private var showingImporter = false
     @State private var errorMessage: String?
     @State private var extractionMessage: String?
@@ -332,12 +333,16 @@ struct AIImportQueueView: View {
     private func saveCompletedIfPossible(_ snapshot: [AIImportQueue.Job]) async {
         for job in snapshot {
             guard case .completed(let generated) = job.state else { continue }
+            guard !savingJobIDs.contains(job.id) else { continue }
             guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else {
                 continue
             }
             if !subscriptions.isPremium && generated.cards.count > EntitlementRules.freeCardLimitPerDeck {
                 continue
             }
+
+            savingJobIDs.insert(job.id)
+            defer { savingJobIDs.remove(job.id) }
 
             let name = generated.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? job.name : generated.name
             let deck = Deck(name: name, emoji: "📚")

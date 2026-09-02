@@ -1,0 +1,117 @@
+import SwiftUI
+
+struct OnDeviceAISettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var isInstalled = false
+    @State private var isDownloading = false
+    @State private var progress: ModelDownloadProgress?
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Gemma 4 E2B") {
+                    HStack {
+                        Label(isInstalled ? "Ready on this iPhone" : "Not downloaded", systemImage: isInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
+                        Spacer()
+                        if isInstalled {
+                            Text("2.59 GB")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if isDownloading {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ProgressView(value: progress?.fraction ?? 0)
+                            HStack {
+                                Text("Downloading…")
+                                Spacer()
+                                Text(progressText)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.caption)
+                        }
+                    } else if !isInstalled {
+                        Button("Download Gemma 4", systemImage: "arrow.down.circle.fill") {
+                            startDownload()
+                        }
+                        Text("The model is downloaded once and then runs entirely on-device. A Wi-Fi connection is recommended.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Flashcard generation runs locally with LiteRT-LM. Your study material is not sent to a cloud AI service by Recall.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Remove downloaded model", role: .destructive, systemImage: "trash") {
+                            Task {
+                                await LiteRTModelStore.shared.deleteDownloadedModel()
+                                await refresh()
+                            }
+                        }
+                    }
+                }
+
+                Section("Privacy") {
+                    Label("On-device inference", systemImage: "iphone")
+                    Text("After download, Gemma processes your study material locally on your iPhone. No API key is required.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("On-device AI")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .task { await refresh() }
+            .alert("Model download failed", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+                Button("OK") {}
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private var progressText: String {
+        guard let progress else { return "0%" }
+        let percent = Int((progress.fraction * 100).rounded())
+        guard progress.totalBytes > 0 else { return "\(percent)%" }
+        return "\(percent)% · \(formatBytes(progress.bytesWritten)) / \(formatBytes(progress.totalBytes))"
+    }
+
+    private func refresh() async {
+        isInstalled = await LiteRTModelStore.shared.modelURL() != nil
+    }
+
+    private func startDownload() {
+        guard !isDownloading else { return }
+        isDownloading = true
+        progress = nil
+        errorMessage = nil
+        Task {
+            do {
+                _ = try await LiteRTModelStore.shared.downloadModel { update in
+                    Task { @MainActor in
+                        progress = update
+                    }
+                }
+                await MainActor.run {
+                    isDownloading = false
+                    isInstalled = true
+                }
+            } catch {
+                await MainActor.run {
+                    isDownloading = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+}

@@ -7,9 +7,11 @@ struct HomeView: View {
     @Query(sort: \ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
     @AppStorage("dailyGoal") private var dailyGoal = 20
     let onStartReview: () -> Void
+    let onCreate: () -> Void
 
-    init(onStartReview: @escaping () -> Void = {}) {
+    init(onStartReview: @escaping () -> Void = {}, onCreate: @escaping () -> Void = {}) {
         self.onStartReview = onStartReview
+        self.onCreate = onCreate
     }
 
     private var calendar: Calendar { Calendar.current }
@@ -94,7 +96,7 @@ struct HomeView: View {
                             VStack(alignment: .trailing, spacing: 4) {
                                 Text("🔥 \(currentStreak)")
                                     .font(.headline)
-                                Text(currentStreak == 1 ? "day streak" : "day streak")
+                                Text("day streak")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -116,7 +118,7 @@ struct HomeView: View {
                             Text("\(decks.count) decks").font(.subheadline).foregroundStyle(.secondary)
                         }
                         if decks.isEmpty {
-                            EmptyLibraryCard()
+                            EmptyLibraryCard(action: onCreate)
                         } else {
                             ForEach(decks.prefix(3)) { deck in
                                 DeckRow(deck: deck)
@@ -124,11 +126,6 @@ struct HomeView: View {
                         }
                     }
 
-                    // iOS 26's floating Liquid Glass tab bar covers the bottom
-                    // ~14% of the window. Without this trailing spacer the
-                    // empty-library card sits underneath the bar and is clipped
-                    // at first scroll position. The extra vertical room lets
-                    // the user scroll the last card clear of the bar.
                     Color.clear.frame(height: 96)
                 }
                 .padding(.horizontal)
@@ -164,13 +161,29 @@ private struct StatCard: View {
 }
 
 private struct EmptyLibraryCard: View {
+    let action: () -> Void
+
     var body: some View {
-        RecallCard {
-            Label("Create your first deck", systemImage: "plus")
-                .font(.headline)
-            Text("Turn a topic, note, or PDF into cards in seconds.")
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
+        Button(action: action) {
+            RecallCard {
+                HStack(spacing: 14) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(RecallTheme.accent)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Create your first deck")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text("Turn a topic, note, or PDF into cards in seconds.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.tertiary)
+                }
+            }
         }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens Create")
     }
 }

@@ -21,21 +21,7 @@ struct HomeView: View {
     private var studyableCount: Int { dueCount + min(newCount, decks.reduce(0) { $0 + $1.newRemainingToday }) }
     private var masteredCount: Int { cards.filter { $0.repetitions >= 3 && $0.ease >= 2.5 }.count }
     private var todayReviews: Int { metrics.count(on: .now) }
-    private var currentStreak: Int {
-        let reviewDays = Set(reviews.map { calendar.startOfDay(for: $0.reviewedAt) })
-        var cursor = calendar.startOfDay(for: .now)
-        if !reviewDays.contains(cursor) {
-            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor), reviewDays.contains(yesterday) else { return 0 }
-            cursor = yesterday
-        }
-        var count = 0
-        while reviewDays.contains(cursor) {
-            count += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        return count
-    }
+    private var currentStreak: Int { metrics.activeStreak(endingOn: .now) }
     private var goalProgress: Double { min(1, Double(todayReviews) / Double(max(1, dailyGoal))) }
     private var recentReviews: [ReviewLog] { Array(reviews.prefix(3)) }
 

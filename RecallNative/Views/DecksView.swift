@@ -59,10 +59,6 @@ struct DecksView: View {
     private var totalNewAvailable: Int { decks.reduce(0) { $0 + $1.newRemainingToday } }
     private var totalStudyable: Int { totalDue + totalNewAvailable }
 
-    private func startCreate() {
-        showingCreate = true
-    }
-
     var body: some View {
         NavigationStack {
             List {
@@ -106,7 +102,7 @@ struct DecksView: View {
                             }
                             .buttonStyle(.borderedProminent)
 
-                            Button { startCreate() } label: {
+                            Button { showingCreate = true } label: {
                                 Label("Generate privately on device", systemImage: "lock.shield.fill")
                             }
                             Button { showingAIImport = true } label: {
@@ -149,7 +145,7 @@ struct DecksView: View {
 
                 if !decks.isEmpty {
                     Section("Create") {
-                        Button { startCreate() } label: {
+                        Button { showingCreate = true } label: {
                             Label("Generate privately on device", systemImage: "lock.shield.fill")
                         }
                         Button { showingAIImport = true } label: {
@@ -164,7 +160,7 @@ struct DecksView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Unlock unlimited decks & cards")
                                     .font(.headline)
-                                Text("Recall Full · \(subscriptions.yearlyPriceLabel) / year")
+                                Text("Recall Full · \(subscriptions.products.first?.displayPrice ?? "yearly subscription") / year")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }

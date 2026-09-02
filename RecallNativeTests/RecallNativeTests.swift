@@ -177,6 +177,44 @@ struct RecallNativeTests {
         #expect(session.completionRate == 0)
     }
 
+    @Test func reviewMetricsCalculateRatingAverageAndPositiveRate() {
+        let reviews = [1, 2, 3, 4].map { ReviewLog(rating: $0) }
+        let metrics = ReviewMetrics(reviews: reviews)
+        #expect(metrics.total == 4)
+        #expect(metrics.averageRating == 2.5)
+        #expect(metrics.ratingCounts[1] == 1)
+        #expect(metrics.ratingCounts[4] == 1)
+        #expect(metrics.positiveRate == 50)
+    }
+
+    @Test func reviewMetricsCountInclusiveDateRange() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: 1))!
+        let middle = calendar.date(byAdding: .day, value: 1, to: start)!
+        let end = calendar.date(byAdding: .day, value: 2, to: start)!
+        let outside = calendar.date(byAdding: .day, value: 3, to: start)!
+
+        let first = ReviewLog(rating: 3); first.reviewedAt = start.addingTimeInterval(3_600)
+        let second = ReviewLog(rating: 4); second.reviewedAt = middle.addingTimeInterval(7_200)
+        let third = ReviewLog(rating: 2); third.reviewedAt = end.addingTimeInterval(10_800)
+        let fourth = ReviewLog(rating: 1); fourth.reviewedAt = outside
+        let metrics = ReviewMetrics(reviews: [first, second, third, fourth], calendar: calendar)
+
+        #expect(metrics.count(on: start) == 1)
+        #expect(metrics.count(on: middle) == 1)
+        #expect(metrics.count(from: start, through: end) == 3)
+        #expect(metrics.count(from: end, through: start) == 0)
+    }
+
+    @Test func reviewMetricsReturnZeroForEmptyReviews() {
+        let metrics = ReviewMetrics(reviews: [])
+        #expect(metrics.total == 0)
+        #expect(metrics.averageRating == 0)
+        #expect(metrics.positiveRate == 0)
+        #expect(metrics.count(from: .now, through: .now) == 0)
+    }
+
     @Test func backupRejectsOrphanedCard() throws {
         let orphanDeck = UUID()
         let card = UUID()

@@ -19,6 +19,7 @@ struct CreateView: View {
     @State private var sourceName = ""
     @State private var deckName = ""
     @State private var selectedDeckID: UUID?
+    @State private var openDeckID: UUID?
     @State private var primaryMode: CreateMode = .flashcards
     @State private var advancedMode: CreateMode = .ask
     @State private var resultMode: CreateMode?
@@ -88,6 +89,11 @@ struct CreateView: View {
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { handleImport($0) }
             .sheet(isPresented: $showingSave) { SaveDeckSheet(name: $deckName, selectedDeckID: $selectedDeckID, decks: decks, generatedCount: generated.count, isPremium: subscriptions.isPremium) { saveGeneratedCards() } }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
+            .navigationDestination(item: $openDeckID) { deckID in
+                if let deck = decks.first(where: { $0.id == deckID }) {
+                    DeckDetailView(deck: deck)
+                }
+            }
             .alert("Couldn’t generate", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") { errorMessage = nil } } message: { Text(errorMessage ?? "") }
         }
     }
@@ -105,18 +111,21 @@ struct CreateView: View {
     private func prompt(for mode: CreateMode) -> String { switch mode { case .guide: return "Return ONLY JSON: {\"title\":\"Study guide title\",\"overview\":\"2-4 sentence overview\",\"sections\":[{\"title\":\"Section\",\"summary\":\"Summary\",\"keyPoints\":[\"Point\"],\"keyTerms\":[{\"term\":\"Term\",\"definition\":\"Definition\"}]}],\"takeaways\":[\"Takeaway\"]}. Use 3-8 sections. Every factual claim must be supported by the source. Do not invent facts."; case .exam: return "Return ONLY JSON: {\"title\":\"Practice exam\",\"instructions\":\"Short instructions\",\"questions\":[{\"question\":\"Question\",\"type\":\"multiple_choice\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctIndex\":0,\"answer\":\"Answer\",\"explanation\":\"Explanation\"}]}. Create 10 questions, mixing multiple choice, true/false and short answer."; case .ask: return "Return ONLY JSON: {\"answer\":\"Concise answer\",\"citations\":[\"Supporting fact\"]}. Use only the supplied material. If absent, say you could not find it."; case .explain: return "Return ONLY JSON: {\"concept\":\"Concept\",\"explanation\":\"Simple explanation\",\"analogy\":\"Optional analogy\",\"keyPoints\":[\"Point\"]}. Use plain language and the supplied material."; case .flashcards: return "" } }
     private func saveGeneratedCards() {
         guard !generated.isEmpty else { showingSave = false; return }
+        let destinationDeck: Deck
         if let selectedDeckID, let deck = decks.first(where: { $0.id == selectedDeckID }) {
             guard subscriptions.isPremium || deck.cards.count + generated.count <= EntitlementRules.freeCardLimitPerDeck else { showingSave = false; showingPaywall = true; return }
-            generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }
+            destinationDeck = deck
         } else {
             guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else { showingSave = false; showingPaywall = true; return }
             guard subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck else { showingSave = false; showingPaywall = true; return }
             let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName)
             modelContext.insert(deck)
-            generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }
+            destinationDeck = deck
         }
+        generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: destinationDeck)) }
         try? modelContext.save()
         generated = []; sourceText = ""; sourceName = ""; deckName = ""; selectedDeckID = nil; showingSave = false
+        openDeckID = destinationDeck.id
     }
     private func formatBytes(_ bytes: Int64) -> String { ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) }
 }

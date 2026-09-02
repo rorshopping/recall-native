@@ -6,6 +6,7 @@ struct StatsView: View {
     @Query private var cards: [Flashcard]
     @Query private var decks: [Deck]
     @AppStorage("dailyGoal") private var dailyGoal = 20
+    @State private var showingHistory = false
 
     private var calendar: Calendar { Calendar.current }
     private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, calendar: calendar) }
@@ -69,7 +70,15 @@ struct StatsView: View {
                         StatCard(title: "Reviewed", value: "\\(metrics.total)", icon: "checkmark.circle.fill")
                         StatCard(title: "Mastery", value: "\\(mastery)%", icon: "brain.head.profile.fill")
                     }
-                    Text("REVIEW QUALITY").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
+                    HStack {
+                        Text("REVIEW QUALITY").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
+                        Spacer()
+                        if !reviews.isEmpty {
+                            Button("History") { showingHistory = true }
+                                .font(.caption.weight(.semibold))
+                                .accessibilityLabel("Review history")
+                        }
+                    }
                     RecallCard {
                         VStack(alignment: .leading, spacing: 14) {
                             HStack {
@@ -78,9 +87,7 @@ struct StatsView: View {
                                     Text("How your recent answers are distributed").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text("\\(metrics.positiveRate)% positive")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(RecallTheme.accent)
+                                Text("\\(metrics.positiveRate)% positive").font(.caption.weight(.semibold)).foregroundStyle(RecallTheme.accent)
                             }
                             QualityBar(label: "Again", count: metrics.ratingCounts[1, default: 0], total: metrics.total)
                             QualityBar(label: "Hard", count: metrics.ratingCounts[2, default: 0], total: metrics.total)
@@ -116,6 +123,92 @@ struct StatsView: View {
             .background(RecallTheme.canvas)
             .navigationTitle("Stats")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingHistory) { ReviewHistoryView(reviews: reviews) }
+        }
+    }
+}
+
+private struct ReviewHistoryView: View {
+    @Environment(\\.dismiss) private var dismiss
+    let reviews: [ReviewLog]
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if reviews.isEmpty {
+                    ContentUnavailableView("No reviews yet", systemImage: "clock.arrow.circlepath", description: Text("Your completed reviews will appear here."))
+                } else {
+                    List {
+                        ForEach(reviews) { review in
+                            ReviewHistoryRow(review: review)
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Review history")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+    }
+}
+
+private struct ReviewHistoryRow: View {
+    let review: ReviewLog
+
+    private var ratingTitle: String {
+        switch review.rating {
+        case 1: return "Again"
+        case 2: return "Hard"
+        case 3: return "Good"
+        case 4: return "Easy"
+        default: return "Review"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: ratingIcon)
+                .font(.headline)
+                .foregroundStyle(ratingColor)
+                .frame(width: 30, height: 30)
+                .background(ratingColor.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(review.card?.question ?? "Card no longer available")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    Text(ratingTitle).font(.caption.weight(.medium)).foregroundStyle(ratingColor)
+                    Text("·").foregroundStyle(.tertiary)
+                    Text(review.reviewedAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\\(ratingTitle), \\(review.card?.question ?? "card no longer available"), \\(review.reviewedAt.formatted(date: .abbreviated, time: .shortened))")
+    }
+
+    private var ratingIcon: String {
+        switch review.rating {
+        case 1: return "arrow.uturn.backward"
+        case 2: return "minus"
+        case 3: return "checkmark"
+        case 4: return "bolt.fill"
+        default: return "checkmark.circle"
+        }
+    }
+
+    private var ratingColor: Color {
+        switch review.rating {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return RecallTheme.accent
+        case 4: return .green
+        default: return .secondary
         }
     }
 }
@@ -150,26 +243,16 @@ private struct StatCard: View {
     var body: some View { RecallCard { VStack(alignment: .leading, spacing: 8) { Image(systemName: icon).foregroundStyle(RecallTheme.accent); Text(value).font(.title.bold()); Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading) } }
 }
 private struct QualityBar: View {
-    let label: String
-    let count: Int
-    let total: Int
-
+    let label: String; let count: Int; let total: Int
     private var fraction: Double { total > 0 ? Double(count) / Double(total) : 0 }
-
     var body: some View {
         HStack(spacing: 10) {
             Text(label).font(.caption.weight(.semibold)).frame(width: 42, alignment: .leading)
             GeometryReader { proxy in
-                Capsule().fill(.secondary.opacity(0.12)).overlay(alignment: .leading) {
-                    Capsule().fill(RecallTheme.accent).frame(width: proxy.size.width * fraction)
-                }
-            }
-            .frame(height: 8)
+                Capsule().fill(.secondary.opacity(0.12)).overlay(alignment: .leading) { Capsule().fill(RecallTheme.accent).frame(width: proxy.size.width * fraction) }
+            }.frame(height: 8)
             Text("\\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 24, alignment: .trailing)
-        }
-        .frame(height: 18)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\\(label): \\(count) reviews")
+        }.frame(height: 18).accessibilityElement(children: .ignore).accessibilityLabel("\\(label): \\(count) reviews")
     }
 }
 private struct InfoRow: View {

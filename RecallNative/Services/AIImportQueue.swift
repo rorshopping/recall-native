@@ -1,8 +1,8 @@
 import Foundation
 
 /// Serializes and persists on-device AI work so a user can submit several
-/// documents without competing Foundation Models or LiteRT sessions. Jobs
-/// survive navigation and an app relaunch.
+documents without competing Foundation Models or LiteRT sessions. Jobs
+survive navigation and an app relaunch.
 actor AIImportQueue {
     static let shared = AIImportQueue()
 
@@ -103,6 +103,15 @@ actor AIImportQueue {
         guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
         guard case .failed = jobs[index].state else { return }
         jobs[index].state = .queued
+        persist()
+    }
+
+    /// Removes an item that has not started. The active model request is never
+    /// forcibly torn down, which keeps provider behavior predictable.
+    func cancelQueued(_ id: UUID) {
+        guard let job = jobs.first(where: { $0.id == id }) else { return }
+        guard case .queued = job.state else { return }
+        jobs.removeAll { $0.id == id }
         persist()
     }
 

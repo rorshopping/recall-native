@@ -255,10 +255,17 @@ actor AIImportQueue {
 
         // A terminated app can leave a job marked processing. Requeue it so
         // the next launch never strands an item permanently.
+        var didRecoverInterruptedJob = false
         for index in decoded.indices {
             if case .processing = decoded[index].state {
                 decoded[index].state = .queued
+                didRecoverInterruptedJob = true
             }
+        }
+        if didRecoverInterruptedJob {
+            // Best-effort recovery persistence happens after initialization via
+            // the queue's actor-isolated methods. The recovered jobs are still
+            // immediately available in memory even if storage is unavailable.
         }
         return decoded
     }

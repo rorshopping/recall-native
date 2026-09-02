@@ -32,6 +32,7 @@ struct CreateView: View {
     @State private var modelAvailable = false
     @State private var downloadProgress = ModelDownloadProgress(fraction: 0, bytesWritten: 0, totalBytes: 0)
     @State private var generated: [GeneratedCard] = []
+    @State private var generatedDeckName = ""
     @State private var resultObject: [String: Any]?
     @State private var errorMessage: String?
     private let ai = LocalAIService()
@@ -85,7 +86,7 @@ struct CreateView: View {
                     }
                     Button { generate() } label: { Label(isGenerating ? "Generating..." : activeMode == .flashcards ? "Create flashcards" : "Generate \(activeMode.rawValue)", systemImage: activeMode.icon).frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!canGenerate || isGenerating)
                     if isGenerating { RecallCard { HStack(spacing: 12) { ProgressView(); VStack(alignment: .leading) { Text("Running on device").font(.headline); Text("Gemma 4 is generating your result.").font(.caption).foregroundStyle(.secondary) } } } }
-                    if !generated.isEmpty { FlashcardResult(cards: generated, save: { if canSaveGenerated { deckName = deckName.isEmpty ? suggestedDeckName : deckName; showingSave = true } else { showingPaywall = true } }, dismiss: { generated = [] }) }
+                    if !generated.isEmpty { FlashcardResult(cards: generated, save: { if canSaveGenerated { deckName = deckName.isEmpty ? (generatedDeckName.isEmpty ? suggestedDeckName : generatedDeckName) : deckName; showingSave = true } else { showingPaywall = true } }, dismiss: { generated = []; generatedDeckName = "" }) }
                     if let resultObject, let resultMode, generated.isEmpty { AdvancedResult(mode: resultMode, data: resultObject, dismiss: { self.resultObject = nil; self.resultMode = nil }) }
                     if !isGenerating { Text("🔒 Everything runs on device").font(.caption.weight(.semibold)).frame(maxWidth: .infinity).foregroundStyle(.secondary); Text("Nothing leaves your iPhone. Outputs may be inaccurate, so verify against your source.").font(.caption2).frame(maxWidth: .infinity).foregroundStyle(.tertiary).multilineTextAlignment(.center) }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding()
@@ -119,7 +120,7 @@ struct CreateView: View {
         guard !focus.isEmpty, !sourceName.isEmpty else { return sourceText }
         return "Focus topic: \(focus)\n\nSource material:\n\(sourceText)"
     }
-    private func generate() { guard !isGenerating else { return }; let mode = activeMode; isGenerating = true; generated = []; resultObject = nil; resultMode = nil; Task { @MainActor in do { let source = generationSource(); if mode == .flashcards { generated = try await ai.generateFlashcards(from: source) } else { let data = try await advancedAI.generateJSON(instruction: instruction(for: mode), systemPrompt: prompt(for: mode), source: source); guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIServiceError.generationFailed("Gemma 4 returned an invalid result.") }; resultObject = object; resultMode = mode } } catch { errorMessage = error.localizedDescription }; isGenerating = false } }
+    private func generate() { guard !isGenerating else { return }; let mode = activeMode; isGenerating = true; generated = []; generatedDeckName = ""; resultObject = nil; resultMode = nil; Task { @MainActor in do { let source = generationSource(); if mode == .flashcards { let result = try await ai.generateFlashcards(from: source); generated = result.cards; generatedDeckName = result.name } else { let data = try await advancedAI.generateJSON(instruction: instruction(for: mode), systemPrompt: prompt(for: mode), source: source); guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIServiceError.generationFailed("Gemma 4 returned an invalid result.") }; resultObject = object; resultMode = mode } } catch { errorMessage = error.localizedDescription }; isGenerating = false } }
     private func instruction(for mode: CreateMode) -> String { switch mode { case .guide: return "Create a concise study guide."; case .exam: return "Create a 10-question practice exam."; case .ask: return "Answer this question: \(askInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .explain: return "Explain this concept simply: \(explainInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .flashcards: return "Create flashcards." } }
     private func prompt(for mode: CreateMode) -> String { switch mode { case .guide: return "Return ONLY JSON: {\"title\":\"Study guide title\",\"overview\":\"2-4 sentence overview\",\"sections\":[{\"title\":\"Section\",\"summary\":\"Summary\",\"keyPoints\":[\"Point\"],\"keyTerms\":[{\"term\":\"Term\",\"definition\":\"Definition\"}]}],\"takeaways\":[\"Takeaway\"]}. Use 3-8 sections. Every factual claim must be supported by the source. Do not invent facts."; case .exam: return "Return ONLY JSON: {\"title\":\"Practice exam\",\"instructions\":\"Short instructions\",\"questions\":[{\"question\":\"Question\",\"type\":\"multiple_choice\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctIndex\":0,\"answer\":\"Answer\",\"explanation\":\"Explanation\"}]}. Create 10 questions, mixing multiple choice, true/false and short answer."; case .ask: return "Return ONLY JSON: {\"answer\":\"Concise answer\",\"citations\":[\"Supporting fact\"]}. Use only the supplied material. If absent, say \"I couldn't find this in your material\" and do not invent."; case .explain: return "Return ONLY JSON: {\"concept\":\"Concept\",\"explanation\":\"Simple explanation\",\"analogy\":\"Optional analogy\",\"keyPoints\":[\"Point\"]}. Use the supplied material. If the concept is not clearly covered, say so and clearly label any general explanation as such. Use plain language."; case .flashcards: return "" } }
     private func saveGeneratedCards() {
@@ -137,7 +138,7 @@ struct CreateView: View {
         }
         generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: destinationDeck)) }
         try? modelContext.save()
-        generated = []; sourceText = ""; sourceName = ""; focusInput = ""; deckName = ""; selectedDeckID = nil; showingSave = false
+        generated = []; generatedDeckName = ""; sourceText = ""; sourceName = ""; focusInput = ""; deckName = ""; selectedDeckID = nil; showingSave = false
         openDeckID = destinationDeck.id
     }
     private func formatBytes(_ bytes: Int64) -> String { ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) }

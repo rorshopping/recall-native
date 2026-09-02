@@ -9,18 +9,10 @@ import UIKit
 final class ReviewAudioController: ObservableObject {
     @Published private(set) var isPlaying = false
     private var player: AVPlayer?
-    // `nonisolated(unsafe)` because Swift 6 makes actor-class `deinit`
-    // nonisolated; without this, the synchronous teardown in `deinit` can't
-    // reach the observer token. The token is written exactly once via
-    // `addObserver` and cleared exactly once via `removeObserver`/deinit, so
-    // there are no concurrent reads in practice.
     nonisolated(unsafe) private var endObserver: NSObjectProtocol?
 
     func toggle(url: URL) {
-        if isPlaying {
-            stop()
-            return
-        }
+        if isPlaying { stop(); return }
         stop()
         let newPlayer = AVPlayer(url: url)
         player = newPlayer
@@ -67,6 +59,7 @@ struct ReviewView: View {
     @State private var queue: [Flashcard] = []
     @State private var total = 0
     @State private var reviewed = 0
+    @State private var completedCards: Set<UUID> = []
     @State private var revealed = false
     @State private var completed = false
     @State private var typed = ""
@@ -91,16 +84,19 @@ struct ReviewView: View {
         .onDisappear { audio.stop() }
     }
 
+    private var progressCount: Int { min(completedCards.count + 1, max(total, 1)) }
+
     private var studyBody: some View {
         let card = queue[0]
         return VStack(spacing: 18) {
             HStack {
                 Text(deck?.name ?? "Review").font(.headline)
                 Spacer()
-                Text("\(min(reviewed + 1, max(total, 1))) / \(max(total, 1))")
+                Text("\(progressCount) / \(max(total, 1))")
                     .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
             }
-            ProgressView(value: Double(reviewed), total: Double(max(total, 1))).tint(RecallTheme.accent)
+            ProgressView(value: Double(completedCards.count), total: Double(max(total, 1)))
+                .tint(RecallTheme.accent)
 
             RecallCard {
                 VStack(alignment: .leading, spacing: 14) {
@@ -140,6 +136,7 @@ struct ReviewView: View {
     private func mediaView(for card: Flashcard) -> some View {
         if let mediaType = card.mediaType, let uri = card.mediaURI, let url = URL(string: uri) {
             if mediaType == "image" {
+                #if canImport(UIKit)
                 if url.isFileURL, let image = loadLocalImage(url) {
                     Image(uiImage: image).resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
@@ -147,6 +144,11 @@ struct ReviewView: View {
                         image.resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14))
                     } placeholder: { ProgressView().frame(maxWidth: .infinity) }
                 }
+                #else
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14))
+                } placeholder: { ProgressView().frame(maxWidth: .infinity) }
+                #endif
             } else if mediaType == "audio" {
                 Button { audio.toggle(url: url) } label: {
                     Label(audio.isPlaying ? "Pause audio" : "Play audio", systemImage: audio.isPlaying ? "pause.circle.fill" : "play.circle.fill")
@@ -191,7 +193,8 @@ struct ReviewView: View {
         VStack(spacing: 18) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent)
             Text("Session complete").font(.largeTitle.bold())
-            Text("\(reviewed) card\(reviewed == 1 ? "" : "s") reviewed · nice work").foregroundStyle(.secondary)
+            Text("\(reviewed) review\(reviewed == 1 ? "" : "s") · \(completedCards.count) card\(completedCards.count == 1 ? "" : "s") completed")
+                .foregroundStyle(.secondary)
             Button("Study again", action: restart).buttonStyle(.borderedProminent)
             Button("Done") { dismiss() }.buttonStyle(.bordered)
         }.padding(32)
@@ -224,7 +227,7 @@ struct ReviewView: View {
 
     private func restart() {
         audio.stop()
-        didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; revealed = false; typed = ""; typeChecked = nil
+        didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; completedCards = []; revealed = false; typed = ""; typeChecked = nil
         initializeIfNeeded()
     }
 
@@ -254,9 +257,17 @@ struct ReviewView: View {
         }
         modelContext.insert(ReviewLog(rating: grade + 1, card: card))
         try? modelContext.save()
+
         let current = queue.removeFirst()
-        if grade == 0 { queue.append(current) }
-        reviewed += 1; revealed = false; typed = ""; typeChecked = nil
+        if grade == 0 {
+            queue.append(current)
+        } else {
+            completedCards.insert(current.id)
+        }
+        reviewed += 1
+        revealed = false
+        typed = ""
+        typeChecked = nil
         if queue.isEmpty { completed = true }
     }
 }

@@ -94,7 +94,7 @@ struct ReviewView: View {
         .overlay(alignment: .bottom) { keyboardHint }
         .onKeyPress(.space) { revealOrFocus(card); return .handled }
         .onKeyPress(.return) { if revealed && card.typeInAnswer { checkTyped(); return .handled }; return .ignored }
-        .onKeyPress(characters: .init("1234"), phases: .down) { press in
+        .onKeyPress(characters: CharacterSet(charactersIn: "1234"), phases: .down) { press in
             guard revealed else { return .ignored }
             switch press.characters { case "1": rate(0); case "2": rate(1); case "3": rate(2); case "4": rate(3); default: return .ignored }
             return .handled

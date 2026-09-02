@@ -2,13 +2,14 @@ import SwiftUI
 import LocalAuthentication
 
 private enum RecallTab: Hashable {
-    case decks, create, stats, settings
+    case home, decks, create, stats, settings
 }
 
 struct RootView: View {
-    @State private var selectedTab: RecallTab = .decks
+    @State private var selectedTab: RecallTab = .home
     @State private var importURL: URL?
     @State private var showingDesignLab = false
+    @State private var showingHomeReview = false
     @State private var lockState: LockState = .checking
     @State private var lastBackgroundedAt: Date?
     @State private var isAuthenticating = false
@@ -32,6 +33,10 @@ struct RootView: View {
     var body: some View {
         GeometryReader { proxy in
             TabView(selection: $selectedTab) {
+                HomeView(onStartReview: { showingHomeReview = true })
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tag(RecallTab.home)
                 DecksView()
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .tabItem { Label("Decks", systemImage: "tray.full") }
@@ -56,9 +61,7 @@ struct RootView: View {
         .tint(RecallTheme.accent)
         .preferredColorScheme(colorScheme)
         .overlay {
-            if lockState != .unlocked {
-                lockOverlay
-            }
+            if lockState != .unlocked { lockOverlay }
         }
         .onAppear {
             Task { await checkAndLock() }
@@ -69,6 +72,7 @@ struct RootView: View {
         }
         .sheet(item: $importURL) { url in ImportLinkView(url: url) }
         .sheet(isPresented: $showingDesignLab) { DesignLabView() }
+        .fullScreenCover(isPresented: $showingHomeReview) { ReviewView() }
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in
             designLabTaps += 1
             if designLabTaps >= 7 {
@@ -89,26 +93,17 @@ struct RootView: View {
     @ViewBuilder
     private var lockOverlay: some View {
         ZStack {
-            Color(uiColor: .systemBackground)
-                .ignoresSafeArea()
-
+            Color(uiColor: .systemBackground).ignoresSafeArea()
             VStack(spacing: 0) {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 44, weight: .medium))
                     .foregroundStyle(RecallTheme.accent)
                     .padding(.bottom, 28)
-
-                Text("Recall is locked")
-                    .font(.title2.weight(.semibold))
-
+                Text("Recall is locked").font(.title2.weight(.semibold))
                 if lockState == .checking {
-                    ProgressView()
-                        .controlSize(.large)
-                        .padding(.top, 28)
+                    ProgressView().controlSize(.large).padding(.top, 28)
                 } else {
-                    Button {
-                        Task { await attemptUnlock() }
-                    } label: {
+                    Button { Task { await attemptUnlock() } } label: {
                         Label("Unlock with Face ID", systemImage: "faceid")
                             .font(.headline)
                             .padding(.horizontal, 22)
@@ -118,7 +113,6 @@ struct RootView: View {
                     .tint(RecallTheme.accent)
                     .padding(.top, 28)
                     .disabled(isAuthenticating)
-
                     Text("Use your device passcode if Face ID is unavailable.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -134,10 +128,7 @@ struct RootView: View {
 
     @MainActor
     private func checkAndLock() async {
-        guard biometricEnabled else {
-            lockState = .unlocked
-            return
-        }
+        guard biometricEnabled else { lockState = .unlocked; return }
         lockState = .locked
         await attemptUnlock()
     }
@@ -147,19 +138,12 @@ struct RootView: View {
         guard !isAuthenticating else { return }
         isAuthenticating = true
         defer { isAuthenticating = false }
-
         let context = LAContext()
         context.localizedFallbackTitle = "Use Passcode"
         context.localizedCancelTitle = "Cancel"
-
         do {
-            let success = try await context.evaluatePolicy(
-                .deviceOwnerAuthentication,
-                localizedReason: "Unlock Recall"
-            )
-            if success {
-                lockState = .unlocked
-            }
+            let success = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock Recall")
+            if success { lockState = .unlocked }
         } catch {
             lockState = .locked
         }

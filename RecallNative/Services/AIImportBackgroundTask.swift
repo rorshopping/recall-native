@@ -7,7 +7,10 @@ import BackgroundTasks
 @available(iOS 26.0, *)
 final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
     static let shared = AIImportBackgroundTask()
-    static let identifier = "com.recalllabs.recallnative.ai-import"
+    /// Base wildcard identifier declared for this app's continued-processing
+    /// task family. Each submitted request receives a unique concrete suffix.
+    static let identifierPrefix = "com.recalllabs.recallnative.ai-import.*"
+    private static let identifierContext = "com.recalllabs.recallnative.ai-import"
 
     private let queue = AIImportQueue.shared
     private let lock = NSLock()
@@ -35,12 +38,18 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         }
     }
 
+    private func makeTaskIdentifier() -> String {
+        "\(Self.identifierContext).\(UUID().uuidString)"
+    }
+
     func register() {
         lock.lock()
         defer { lock.unlock() }
         guard !registered else { return }
 
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifier, using: nil) { task in
+        // Continued-processing identifiers use the wildcard family declared in
+        // the app's Info.plist. The launch handler is registered for that family.
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifierPrefix, using: nil) { task in
             guard let task = task as? BGContinuedProcessingTask else {
                 task.setTaskCompleted(success: false)
                 return
@@ -66,7 +75,7 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         lock.unlock()
 
         let request = BGContinuedProcessingTaskRequest(
-            identifier: Self.identifier,
+            identifier: makeTaskIdentifier(),
             title: "Generating flashcards",
             subtitle: "Processing your AI inbox privately on device"
         )

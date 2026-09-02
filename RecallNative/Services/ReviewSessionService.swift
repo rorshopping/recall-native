@@ -28,6 +28,25 @@ struct ReviewSessionState {
         return Double(progress) / Double(total)
     }
 
+    /// Number of rated responses for one of the four supported grades.
+    func ratingCount(_ rating: Int) -> Int {
+        ratingCounts[rating, default: 0]
+    }
+
+    /// Percentage of session responses rated Good or Easy.
+    /// Returns zero until at least one response has been recorded.
+    var positiveRate: Int {
+        guard reviewed > 0 else { return 0 }
+        let positive = ratingCount(3) + ratingCount(4)
+        return Int((Double(positive) / Double(reviewed) * 100).rounded())
+    }
+
+    /// Percentage of the original queue that has been completed.
+    var completionRate: Int {
+        guard total > 0 else { return 0 }
+        return Int((Double(progress) / Double(total) * 100).rounded())
+    }
+
     mutating func recordReview(completedCard: Bool, rating: Int? = nil) {
         reviewed += 1
         if let rating, (1...4).contains(rating) {

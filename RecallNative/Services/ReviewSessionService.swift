@@ -6,11 +6,13 @@ struct ReviewSessionState {
     private(set) var total: Int
     private(set) var reviewed: Int
     private(set) var completed: Int
+    private(set) var ratingCounts: [Int: Int]
 
     init(total: Int) {
         self.total = max(0, total)
         self.reviewed = 0
         self.completed = 0
+        self.ratingCounts = [:]
     }
 
     /// Number of cards completed in the original session queue.
@@ -26,8 +28,11 @@ struct ReviewSessionState {
         return Double(progress) / Double(total)
     }
 
-    mutating func recordReview(completedCard: Bool) {
+    mutating func recordReview(completedCard: Bool, rating: Int? = nil) {
         reviewed += 1
+        if let rating, (1...4).contains(rating) {
+            ratingCounts[rating, default: 0] += 1
+        }
         if completedCard {
             completed = min(completed + 1, total)
         }
@@ -37,6 +42,7 @@ struct ReviewSessionState {
         self.total = max(0, total)
         reviewed = 0
         completed = 0
+        ratingCounts = [:]
     }
 }
 

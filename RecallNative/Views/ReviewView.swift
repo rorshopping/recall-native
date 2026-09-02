@@ -16,11 +16,7 @@ final class ReviewAudioController: ObservableObject {
         stop()
         let newPlayer = AVPlayer(url: url)
         player = newPlayer
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: newPlayer.currentItem,
-            queue: .main
-        ) { [weak self] _ in
+        endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: newPlayer.currentItem, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.isPlaying = false
                 self?.player = nil
@@ -32,22 +28,14 @@ final class ReviewAudioController: ObservableObject {
     }
 
     func stop() {
-        player?.pause()
-        player = nil
-        isPlaying = false
-        removeObserver()
+        player?.pause(); player = nil; isPlaying = false; removeObserver()
     }
 
     private func removeObserver() {
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-            self.endObserver = nil
-        }
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil }
     }
 
-    deinit {
-        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
-    }
+    deinit { if let endObserver { NotificationCenter.default.removeObserver(endObserver) } }
 }
 
 struct ReviewView: View {
@@ -92,27 +80,21 @@ struct ReviewView: View {
             HStack {
                 Text(deck?.name ?? "Review").font(.headline)
                 Spacer()
-                Text("\(progressCount) / \(max(total, 1))")
-                    .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                Text("\(progressCount) / \(max(total, 1))").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
             }
-            ProgressView(value: Double(completedCards.count), total: Double(max(total, 1)))
-                .tint(RecallTheme.accent)
+            ProgressView(value: Double(progressCount), total: Double(max(total, 1))).tint(RecallTheme.accent)
 
             RecallCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
-                        Text(revealed ? "ANSWER" : "QUESTION")
-                            .font(.caption.weight(.bold)).foregroundStyle(RecallTheme.accent).tracking(1)
+                        Text(revealed ? "ANSWER" : "QUESTION").font(.caption.weight(.bold)).foregroundStyle(RecallTheme.accent).tracking(1)
                         Spacer()
                         Text(card.state.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
                             mediaView(for: card)
-                            Text(displayText(for: card))
-                                .font(.title2.bold())
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
+                            Text(displayText(for: card)).font(.title2.bold()).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
                         }
                     }
                     if !revealed { Text("Tap to reveal the answer").font(.subheadline).foregroundStyle(.secondary) }
@@ -126,7 +108,7 @@ struct ReviewView: View {
                 Text("Hint: \(card.hint)").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: 760, alignment: .leading)
             }
             if revealed && card.typeInAnswer { typeIn(card) }
-            else if revealed { ratings }
+            else if revealed { ratings(for: card) }
             else { Text("How well did you remember it?").font(.caption).foregroundStyle(.secondary) }
         }
         .padding()
@@ -140,22 +122,15 @@ struct ReviewView: View {
                 if url.isFileURL, let image = loadLocalImage(url) {
                     Image(uiImage: image).resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14))
-                    } placeholder: { ProgressView().frame(maxWidth: .infinity) }
+                    AsyncImage(url: url) { image in image.resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14)) } placeholder: { ProgressView().frame(maxWidth: .infinity) }
                 }
                 #else
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14))
-                } placeholder: { ProgressView().frame(maxWidth: .infinity) }
+                AsyncImage(url: url) { image in image.resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 14)) } placeholder: { ProgressView().frame(maxWidth: .infinity) }
                 #endif
             } else if mediaType == "audio" {
                 Button { audio.toggle(url: url) } label: {
-                    Label(audio.isPlaying ? "Pause audio" : "Play audio", systemImage: audio.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                    Label(audio.isPlaying ? "Pause audio" : "Play audio", systemImage: audio.isPlaying ? "pause.circle.fill" : "play.circle.fill").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered).controlSize(.large)
             }
         }
     }
@@ -164,28 +139,30 @@ struct ReviewView: View {
     private func loadLocalImage(_ url: URL) -> UIImage? { UIImage(contentsOfFile: url.path) }
     #endif
 
-    private var ratings: some View {
+    private func ratings(for card: Flashcard) -> some View {
         HStack(spacing: 8) {
-            RatingButton(title: "Again", value: 0, action: rate)
-            RatingButton(title: "Hard", value: 1, action: rate)
-            RatingButton(title: "Good", value: 2, action: rate)
-            RatingButton(title: "Easy", value: 3, action: rate)
+            RatingButton(title: "Again", subtitle: intervalLabel(for: card, grade: 0), value: 0, action: rate)
+            RatingButton(title: "Hard", subtitle: intervalLabel(for: card, grade: 1), value: 1, action: rate)
+            RatingButton(title: "Good", subtitle: intervalLabel(for: card, grade: 2), value: 2, action: rate)
+            RatingButton(title: "Easy", subtitle: intervalLabel(for: card, grade: 3), value: 3, action: rate)
         }.frame(maxWidth: 760)
+    }
+
+    private func intervalLabel(for card: Flashcard, grade: Int) -> String {
+        let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade)
+        let seconds = result.dueAt.timeIntervalSinceNow
+        if seconds < 3600 { return "\(max(1, Int(ceil(seconds / 60)))) min" }
+        if seconds < 86_400 { return "\(max(1, Int(ceil(seconds / 3600)))) hr" }
+        let days = max(1, Int(ceil(seconds / 86_400)))
+        return days == 1 ? "1 day" : "\(days) days"
     }
 
     private func typeIn(_ card: Flashcard) -> some View {
         VStack(spacing: 10) {
-            TextField("Type your answer", text: $typed)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .onSubmit(checkTyped)
-            if let typeChecked {
-                Text(typeChecked ? "✓ Correct" : "✗ Answer: \(card.answer)")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(typeChecked ? .green : .red)
-            }
+            TextField("Type your answer", text: $typed).textFieldStyle(.roundedBorder).textInputAutocapitalization(.never).autocorrectionDisabled().onSubmit(checkTyped)
+            if let typeChecked { Text(typeChecked ? "✓ Correct" : "✗ Answer: \(card.answer)").font(.subheadline.weight(.semibold)).foregroundStyle(typeChecked ? .green : .red) }
             Button("Check", action: checkTyped).buttonStyle(.borderedProminent)
-            if typeChecked != nil { ratings }
+            if typeChecked != nil { ratings(for: card) }
         }.frame(maxWidth: 760)
     }
 
@@ -193,8 +170,7 @@ struct ReviewView: View {
         VStack(spacing: 18) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent)
             Text("Session complete").font(.largeTitle.bold())
-            Text("\(reviewed) review\(reviewed == 1 ? "" : "s") · \(completedCards.count) card\(completedCards.count == 1 ? "" : "s") completed")
-                .foregroundStyle(.secondary)
+            Text("\(reviewed) review\(reviewed == 1 ? "" : "s") · \(completedCards.count) card\(completedCards.count == 1 ? "" : "s") completed").foregroundStyle(.secondary)
             Button("Study again", action: restart).buttonStyle(.borderedProminent)
             Button("Done") { dismiss() }.buttonStyle(.bordered)
         }.padding(32)
@@ -204,8 +180,7 @@ struct ReviewView: View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 60)).foregroundStyle(RecallTheme.accent)
             Text("Nothing due right now").font(.title.bold())
-            Text("All caught up. Your next reviews will appear here when they are due.")
-                .foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text("All caught up. Your next reviews will appear here when they are due.").foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
         }.padding(32)
     }
@@ -220,14 +195,11 @@ struct ReviewView: View {
             let fresh = Array(scoped.filter(\.isNew).prefix(deck?.newRemainingToday ?? scoped.count))
             initial = due + fresh
         }
-        queue = initial
-        total = initial.count
-        didInitialize = true
+        queue = initial; total = initial.count; didInitialize = true
     }
 
     private func restart() {
-        audio.stop()
-        didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; completedCards = []; revealed = false; typed = ""; typeChecked = nil
+        audio.stop(); didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; completedCards = []; revealed = false; typed = ""; typeChecked = nil
         initializeIfNeeded()
     }
 
@@ -255,26 +227,28 @@ struct ReviewView: View {
             if deck.newDay != today { deck.newDay = today; deck.newStudiedToday = 0 }
             deck.newStudiedToday += 1
         }
-        modelContext.insert(ReviewLog(rating: grade + 1, card: card))
-        try? modelContext.save()
-
+        modelContext.insert(ReviewLog(rating: grade + 1, card: card)); try? modelContext.save()
         let current = queue.removeFirst()
-        if grade == 0 {
-            queue.append(current)
-        } else {
-            completedCards.insert(current.id)
-        }
-        reviewed += 1
-        revealed = false
-        typed = ""
-        typeChecked = nil
+        if grade == 0 { queue.append(current) } else { completedCards.insert(current.id) }
+        reviewed += 1; revealed = false; typed = ""; typeChecked = nil
         if queue.isEmpty { completed = true }
     }
 }
 
 private struct RatingButton: View {
     let title: String
+    let subtitle: String
     let value: Int
     let action: (Int) -> Void
-    var body: some View { Button(title) { action(value) }.buttonStyle(.borderedProminent).controlSize(.small).frame(maxWidth: .infinity) }
+    var body: some View {
+        Button { action(value) } label: {
+            VStack(spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(subtitle).font(.caption2).foregroundStyle(.secondary)
+            }.frame(maxWidth: .infinity, minHeight: 42)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .frame(maxWidth: .infinity)
+    }
 }

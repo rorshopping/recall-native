@@ -1,7 +1,7 @@
 import Foundation
 
 /// Describes the preferred on-device generation backend without coupling the UI to a specific model implementation.
-enum OnDeviceAIProvider: Sendable {
+enum OnDeviceAIProvider: Sendable, Equatable {
     case apple
     case gemma
     case unavailable

@@ -4,6 +4,8 @@ import Vision
 import UIKit
 
 struct DocumentImportService: Sendable {
+    private static let maxPDFPages = 20
+
     func extractText(from url: URL) throws -> String {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
@@ -16,24 +18,23 @@ struct DocumentImportService: Sendable {
 
     private func extractPDFText(from url: URL) throws -> String {
         guard let document = PDFDocument(url: url) else { throw ImportError.invalidPDF }
-        guard document.pageCount <= 5 else { throw ImportError.tooManyPages }
+        guard document.pageCount <= Self.maxPDFPages else { throw ImportError.tooManyPages }
 
-        let selectableText = (0..<document.pageCount)
-            .compactMap { document.page(at: $0)?.string }
-            .joined(separator: "\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if !selectableText.isEmpty {
-            return selectableText
-        }
-
-        // Many study PDFs are scans with no text layer. Fall back to local OCR
-        // instead of rejecting the document as empty. The five-page limit keeps
-        // foreground extraction responsive and bounds the amount of OCR work
-        // that can enter the AI queue at once.
+        // Process each page independently. Real-world PDFs often mix a text
+        // layer with scanned pages, so falling back to OCR only when the whole
+        // document has no selectable text silently loses scanned pages.
         var pages: [String] = []
+        pages.reserveCapacity(document.pageCount)
+
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index) else { continue }
+
+            let selectableText = page.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !selectableText.isEmpty {
+                pages.append(selectableText)
+                continue
+            }
+
             let image = page.thumbnail(
                 of: CGSize(width: 1800, height: 2400),
                 for: .mediaBox
@@ -43,9 +44,9 @@ struct DocumentImportService: Sendable {
             }
         }
 
-        let ocrText = pages.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !ocrText.isEmpty else { throw ImportError.emptyPDF }
-        return ocrText
+        let text = pages.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw ImportError.emptyPDF }
+        return text
     }
 
     private func extractImageText(from image: UIImage) throws -> String {
@@ -76,7 +77,7 @@ struct DocumentImportService: Sendable {
             switch self {
             case .invalidDocument: return "The selected document could not be read."
             case .invalidPDF: return "The selected PDF could not be read."
-            case .tooManyPages: return "Please choose a PDF with 5 pages or fewer."
+            case .tooManyPages: return "Please choose a PDF with \(DocumentImportService.maxPDFPages) pages or fewer."
             case .emptyPDF: return "No readable text was found in this PDF."
             case .invalidImage: return "The selected image could not be read."
             case .emptyImage: return "No readable text was found in this image."

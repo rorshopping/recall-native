@@ -18,6 +18,7 @@ struct CreateView: View {
     @State private var sourceText = ""
     @State private var sourceName = ""
     @State private var deckName = ""
+    @State private var selectedDeckID: UUID?
     @State private var mode: CreateMode = .flashcards
     @State private var askInput = ""
     @State private var explainInput = ""
@@ -73,7 +74,7 @@ struct CreateView: View {
                     }
                     Button { generate() } label: { Label(isGenerating ? "Generating..." : mode == .flashcards ? "Create flashcards" : "Generate \(mode.rawValue)", systemImage: mode.icon).frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!canGenerate || isGenerating)
                     if isGenerating { RecallCard { HStack(spacing: 12) { ProgressView(); VStack(alignment: .leading) { Text("Running on device").font(.headline); Text("Gemma 4 is generating your result.").font(.caption).foregroundStyle(.secondary) } } } }
-                    if !generated.isEmpty { FlashcardResult(cards: generated, save: { if canSaveGenerated { deckName = deckName.isEmpty ? suggestedDeckName : deckName; showingSave = true } else { showingPaywall = true } }, dismiss: { generated = [] }) }
+                    if !generated.isEmpty { FlashcardResult(cards: generated, save: { if canSaveGenerated { deckName = deckName.isEmpty ? suggestedDeckName : deckName; selectedDeckID = selectedDeckID ?? decks.first?.id; showingSave = true } else { showingPaywall = true } }, dismiss: { generated = [] }) }
                     if let resultObject, generated.isEmpty { AdvancedResult(mode: mode, data: resultObject, dismiss: { self.resultObject = nil }) }
                     if !isGenerating { Text("🔒 Everything runs on device").font(.caption.weight(.semibold)).frame(maxWidth: .infinity).foregroundStyle(.secondary); Text("Nothing leaves your iPhone. Outputs may be inaccurate, so verify against your source.").font(.caption2).frame(maxWidth: .infinity).foregroundStyle(.tertiary).multilineTextAlignment(.center) }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding()
@@ -81,7 +82,7 @@ struct CreateView: View {
             .background(RecallTheme.canvas).navigationTitle("Create").navigationBarTitleDisplayMode(.inline)
             .task { modelAvailable = await modelStore.modelURL() != nil; await subscriptions.load() }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { handleImport($0) }
-            .sheet(isPresented: $showingSave) { SaveDeckSheet(name: $deckName) { saveGeneratedCards() } }
+            .sheet(isPresented: $showingSave) { SaveDeckSheet(name: $deckName, selectedDeckID: $selectedDeckID, decks: decks) { saveGeneratedCards() } }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .alert("Couldn’t generate", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") { errorMessage = nil } } message: { Text(errorMessage ?? "") }
         }
@@ -95,7 +96,19 @@ struct CreateView: View {
     private func generate() { guard !isGenerating else { return }; isGenerating = true; generated = []; resultObject = nil; Task { @MainActor in do { if mode == .flashcards { generated = try await ai.generateFlashcards(from: sourceText) } else { let data = try await advancedAI.generateJSON(instruction: instruction, systemPrompt: prompt, source: sourceText); guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AIServiceError.generationFailed("Gemma 4 returned an invalid result.") }; resultObject = object } } catch { errorMessage = error.localizedDescription }; isGenerating = false } }
     private var instruction: String { switch mode { case .guide: return "Create a concise study guide."; case .exam: return "Create a 10-question practice exam."; case .ask: return "Answer this question: \(askInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .explain: return "Explain this concept simply: \(explainInput.trimmingCharacters(in: .whitespacesAndNewlines))"; case .flashcards: return "Create flashcards." } }
     private var prompt: String { switch mode { case .guide: return "Return ONLY JSON: {\"title\":\"Study guide title\",\"overview\":\"2-4 sentence overview\",\"sections\":[{\"title\":\"Section\",\"summary\":\"Summary\",\"keyPoints\":[\"Point\"],\"keyTerms\":[{\"term\":\"Term\",\"definition\":\"Definition\"}]}],\"takeaways\":[\"Takeaway\"]}. Use 3-8 sections. Every factual claim must be supported by the source. Do not invent facts."; case .exam: return "Return ONLY JSON: {\"title\":\"Practice exam\",\"instructions\":\"Short instructions\",\"questions\":[{\"question\":\"Question\",\"type\":\"multiple_choice\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctIndex\":0,\"answer\":\"Answer\",\"explanation\":\"Explanation\"}]}. Create 10 questions, mixing multiple choice, true/false and short answer."; case .ask: return "Return ONLY JSON: {\"answer\":\"Concise answer\",\"citations\":[\"Supporting fact\"]}. Use only the supplied material. If absent, say you could not find it."; case .explain: return "Return ONLY JSON: {\"concept\":\"Concept\",\"explanation\":\"Simple explanation\",\"analogy\":\"Optional analogy\",\"keyPoints\":[\"Point\"]}. Use plain language and the supplied material."; case .flashcards: return "" } }
-    private func saveGeneratedCards() { guard canSaveGenerated else { showingSave = false; showingPaywall = true; return }; let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName); modelContext.insert(deck); generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }; try? modelContext.save(); generated = []; sourceText = ""; sourceName = ""; deckName = ""; showingSave = false }
+    private func saveGeneratedCards() {
+        guard !generated.isEmpty else { showingSave = false; return }
+        if let selectedDeckID, let deck = decks.first(where: { $0.id == selectedDeckID }) {
+            generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }
+        } else {
+            guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else { showingSave = false; showingPaywall = true; return }
+            let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName)
+            modelContext.insert(deck)
+            generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }
+        }
+        try? modelContext.save()
+        generated = []; sourceText = ""; sourceName = ""; deckName = ""; selectedDeckID = nil; showingSave = false
+    }
     private func formatBytes(_ bytes: Int64) -> String { ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) }
 }
 
@@ -103,4 +116,43 @@ private struct FlashcardResult: View { let cards: [GeneratedCard]; let save: () 
 private struct AdvancedResult: View { let mode: CreateMode; let data: [String: Any]; let dismiss: () -> Void; var body: some View { RecallCard { VStack(alignment: .leading, spacing: 12) { Text(mode.rawValue.uppercased()).font(.caption.weight(.bold)).foregroundStyle(RecallTheme.accent).tracking(1); content; Button("Done", action: dismiss).buttonStyle(.bordered).frame(maxWidth: .infinity) } } }; @ViewBuilder private var content: some View { switch mode { case .guide: GuideContent(data: data); case .exam: ExamContent(data: data); case .ask: Text(data["answer"] as? String ?? "No answer returned.").font(.body); case .explain: VStack(alignment: .leading, spacing: 8) { Text(data["concept"] as? String ?? "Explanation").font(.title3.bold()); Text(data["explanation"] as? String ?? ""); if let analogy = data["analogy"] as? String, !analogy.isEmpty { Text("Analogy").font(.headline); Text(analogy) }; ForEach((data["keyPoints"] as? [String]) ?? [], id: \.self) { Text("• \($0)") }; }; case .flashcards: EmptyView() } } }
 private struct GuideContent: View { let data: [String: Any]; var body: some View { VStack(alignment: .leading, spacing: 10) { Text(data["title"] as? String ?? "Study guide").font(.title2.bold()); Text(data["overview"] as? String ?? "").foregroundStyle(.secondary); ForEach(Array(((data["sections"] as? [[String: Any]]) ?? []).enumerated()), id: \.offset) { _, section in VStack(alignment: .leading, spacing: 5) { Text(section["title"] as? String ?? "Section").font(.headline); Text(section["summary"] as? String ?? "").foregroundStyle(.secondary); ForEach((section["keyPoints"] as? [String]) ?? [], id: \.self) { Text("• \($0)") } } }; if let takeaways = data["takeaways"] as? [String], !takeaways.isEmpty { Text("Key takeaways").font(.headline); ForEach(takeaways, id: \.self) { Text("• \($0)") } } } } }
 private struct ExamContent: View { let data: [String: Any]; @State private var revealed: Set<Int> = []; var body: some View { VStack(alignment: .leading, spacing: 12) { Text(data["title"] as? String ?? "Practice exam").font(.title2.bold()); Text(data["instructions"] as? String ?? "").foregroundStyle(.secondary); ForEach(Array(((data["questions"] as? [[String: Any]]) ?? []).enumerated()), id: \.offset) { index, q in VStack(alignment: .leading, spacing: 7) { Text("Question \(index + 1)").font(.caption.weight(.bold)).foregroundStyle(RecallTheme.accent); Text(q["question"] as? String ?? "").font(.headline); ForEach((q["options"] as? [String]) ?? [], id: \.self) { Text("• \($0)").foregroundStyle(.secondary) }; Button(revealed.contains(index) ? "Hide answer" : "Show answer") { if revealed.contains(index) { revealed.remove(index) } else { revealed.insert(index) } }; if revealed.contains(index) { Text("Answer: \(q["answer"] as? String ?? "")").padding(10).background(RecallTheme.canvas, in: RoundedRectangle(cornerRadius: 12, style: .continuous)); if let explanation = q["explanation"] as? String { Text(explanation).font(.caption).foregroundStyle(.secondary) } } }.padding(.top, 8) } } } }
-private struct SaveDeckSheet: View { @Environment(\.dismiss) private var dismiss; @Binding var name: String; let save: () -> Void; var body: some View { NavigationStack { Form { Section("Deck") { TextField("Deck name", text: $name) }; Section { Text("Generated flashcards are saved locally and ready for spaced repetition.").font(.subheadline).foregroundStyle(.secondary) } }.navigationTitle("Save cards").toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } } } }.presentationDetents([.medium]) } }
+private struct SaveDeckSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var name: String
+    @Binding var selectedDeckID: UUID?
+    let decks: [Deck]
+    let save: () -> Void
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Save to") {
+                    if decks.isEmpty {
+                        Text("No decks yet. A new deck will be created.").foregroundStyle(.secondary)
+                    } else {
+                        Picker("Destination", selection: Binding(get: { selectedDeckID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000000")! }, set: { value in
+                            let emptyID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+                            selectedDeckID = value == emptyID ? nil : value
+                        })) {
+                            Text("New deck").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                            ForEach(decks) { deck in Text("\(deck.emoji)  \(deck.name)").tag(deck.id) }
+                        }
+                    }
+                }
+                if selectedDeckID == nil {
+                    Section("New deck") {
+                        TextField("Deck name", text: $name)
+                    }
+                }
+                Section {
+                    Text("Generated flashcards are saved locally and ready for spaced repetition.").font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Save cards")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}

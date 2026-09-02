@@ -8,7 +8,7 @@ final class SubscriptionService: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var isPremium = false
     @Published private(set) var purchaseError: String?
-    private let productIDs: Set<String> = ["recall_yearly"]
+    private let productIDs: Set<String> = ["recall_native_yearly"]
     private var updatesTask: Task<Void, Never>?
 
     init() {

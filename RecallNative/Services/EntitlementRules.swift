@@ -4,7 +4,7 @@ import Foundation
 enum EntitlementRules {
     static let freeDeckLimit = 1
     static let freeCardLimitPerDeck = 50
-    static let yearlyProductID = "recall_yearly"
+    static let yearlyProductID = "recall_native_yearly"
     static let yearlyPriceLabel = "39,99 €"
 
     static func canCreateDeck(isPremium: Bool, deckCount: Int) -> Bool {

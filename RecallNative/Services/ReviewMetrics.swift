@@ -4,10 +4,15 @@ import Foundation
 struct ReviewMetrics {
     let reviews: [ReviewLog]
     private let calendar: Calendar
+    private let dailyCounts: [Date: Int]
 
     init(reviews: [ReviewLog], calendar: Calendar = .current) {
         self.reviews = reviews
         self.calendar = calendar
+        self.dailyCounts = reviews.reduce(into: [Date: Int]()) { counts, review in
+            let day = calendar.startOfDay(for: review.reviewedAt)
+            counts[day, default: 0] += 1
+        }
     }
 
     var total: Int { reviews.count }
@@ -27,9 +32,7 @@ struct ReviewMetrics {
     }
 
     func count(on date: Date) -> Int {
-        reviews.reduce(into: 0) { count, review in
-            if calendar.isDate(review.reviewedAt, inSameDayAs: date) { count += 1 }
-        }
+        dailyCounts[calendar.startOfDay(for: date), default: 0]
     }
 
     func counts(for dates: [Date]) -> [Int] {

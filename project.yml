@@ -45,3 +45,9 @@ targets:
     sources: [RecallNativeTests]
     dependencies:
       - target: RecallNative
+  RecallNativeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [RecallNativeUITests]
+    dependencies:
+      - target: RecallNative

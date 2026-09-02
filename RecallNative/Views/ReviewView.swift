@@ -10,10 +10,40 @@ final class ReviewAudioController: ObservableObject {
     @Published private(set) var isPlaying = false
     private var player: AVPlayer?
     nonisolated(unsafe) private var endObserver: NSObjectProtocol?
-    func toggle(url: URL) { if isPlaying { stop(); return }; stop(); let newPlayer = AVPlayer(url: url); player = newPlayer; endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: newPlayer.currentItem, queue: .main) { [weak self] _ in Task { @MainActor [weak self] in self?.isPlaying = false; self?.player = nil; self?.removeObserver() } }; isPlaying = true; newPlayer.play() }
-    func stop() { player?.pause(); player = nil; isPlaying = false; removeObserver() }
-    private func removeObserver() { if let endObserver { NotificationCenter.default.removeObserver(endObserver); self.endObserver = nil } }
-    deinit { if let endObserver { NotificationCenter.default.removeObserver(endObserver) } }
+
+    func toggle(url: URL) {
+        if isPlaying { stop(); return }
+        stop()
+        let newPlayer = AVPlayer(url: url)
+        player = newPlayer
+        endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: newPlayer.currentItem, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isPlaying = false
+                self?.player = nil
+                self?.removeObserver()
+            }
+        }
+        isPlaying = true
+        newPlayer.play()
+    }
+
+    func stop() {
+        player?.pause()
+        player = nil
+        isPlaying = false
+        removeObserver()
+    }
+
+    private func removeObserver() {
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+            self.endObserver = nil
+        }
+    }
+
+    deinit {
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+    }
 }
 
 struct ReviewView: View {
@@ -32,7 +62,10 @@ struct ReviewView: View {
     @State private var didInitialize = false
     @StateObject private var audio = ReviewAudioController()
 
-    init(deck: Deck? = nil, studyAll: Bool = false) { self.deck = deck; self.studyAll = studyAll }
+    init(deck: Deck? = nil, studyAll: Bool = false) {
+        self.deck = deck
+        self.studyAll = studyAll
+    }
 
     var body: some View {
         NavigationStack {
@@ -44,7 +77,9 @@ struct ReviewView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done") { audio.stop(); dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { audio.stop(); dismiss() }
+                }
             }
         }
         .task { initializeIfNeeded() }
@@ -108,7 +143,13 @@ struct ReviewView: View {
         .onKeyPress(.return) { if revealed && card.typeInAnswer { checkTyped(); return .handled }; return .ignored }
         .onKeyPress(characters: CharacterSet(charactersIn: "1234"), phases: .down) { press in
             guard revealed else { return .ignored }
-            switch press.characters { case "1": rate(0); case "2": rate(1); case "3": rate(2); case "4": rate(3); default: return .ignored }
+            switch press.characters {
+            case "1": rate(0)
+            case "2": rate(1)
+            case "3": rate(2)
+            case "4": rate(3)
+            default: return .ignored
+            }
             return .handled
         }
     }
@@ -121,7 +162,9 @@ struct ReviewView: View {
             .accessibilityHidden(true)
     }
 
-    private func revealOrFocus(_ card: Flashcard) { if !revealed { withAnimation(.snappy(duration: 0.25)) { revealed = true } } }
+    private func revealOrFocus(_ card: Flashcard) {
+        if !revealed { withAnimation(.snappy(duration: 0.25)) { revealed = true } }
+    }
 
     @ViewBuilder private func mediaView(for card: Flashcard) -> some View {
         if let mediaType = card.mediaType, let uri = card.mediaURI, let url = URL(string: uri) {
@@ -137,18 +180,53 @@ struct ReviewView: View {
             }
         }
     }
+
     #if canImport(UIKit)
     private func loadLocalImage(_ url: URL) -> UIImage? { UIImage(contentsOfFile: url.path) }
     #endif
-    private func ratings(for card: Flashcard) -> some View { HStack(spacing: 8) { RatingButton(title: "Again", subtitle: intervalLabel(for: card, grade: 0), value: 0, action: rate); RatingButton(title: "Hard", subtitle: intervalLabel(for: card, grade: 1), value: 1, action: rate); RatingButton(title: "Good", subtitle: intervalLabel(for: card, grade: 2), value: 2, action: rate); RatingButton(title: "Easy", subtitle: intervalLabel(for: card, grade: 3), value: 3, action: rate) }.frame(maxWidth: 760) }
-    private func intervalLabel(for card: Flashcard, grade: Int) -> String { let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade); let seconds = result.dueAt.timeIntervalSinceNow; if seconds < 3600 { return "\(max(1, Int(ceil(seconds / 60)))) min" }; if seconds < 86_400 { return "\(max(1, Int(ceil(seconds / 3600)))) hr" }; let days = max(1, Int(ceil(seconds / 86_400))); return days == 1 ? "1 day" : "\(days) days" }
-    private func typeIn(_ card: Flashcard) -> some View { VStack(spacing: 10) { TextField("Type your answer", text: $typed).textFieldStyle(.roundedBorder).textInputAutocapitalization(.never).autocorrectionDisabled().onSubmit(checkTyped); if let typeChecked { Text(typeChecked ? "✓ Correct" : "✗ Answer: \(card.answer)").font(.subheadline.weight(.semibold)).foregroundStyle(typeChecked ? .green : .red) }; Button("Check", action: checkTyped).buttonStyle(.borderedProminent); if typeChecked != nil { ratings(for: card) } }.frame(maxWidth: 760) }
+
+    private func ratings(for card: Flashcard) -> some View {
+        HStack(spacing: 8) {
+            RatingButton(title: "Again", subtitle: intervalLabel(for: card, grade: 0), value: 0, action: rate)
+            RatingButton(title: "Hard", subtitle: intervalLabel(for: card, grade: 1), value: 1, action: rate)
+            RatingButton(title: "Good", subtitle: intervalLabel(for: card, grade: 2), value: 2, action: rate)
+            RatingButton(title: "Easy", subtitle: intervalLabel(for: card, grade: 3), value: 3, action: rate)
+        }.frame(maxWidth: 760)
+    }
+
+    private func intervalLabel(for card: Flashcard, grade: Int) -> String {
+        let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade)
+        let seconds = result.dueAt.timeIntervalSinceNow
+        if seconds < 3600 { return "\(max(1, Int(ceil(seconds / 60)))) min" }
+        if seconds < 86_400 { return "\(max(1, Int(ceil(seconds / 3600)))) hr" }
+        let days = max(1, Int(ceil(seconds / 86_400)))
+        return days == 1 ? "1 day" : "\(days) days"
+    }
+
+    private func typeIn(_ card: Flashcard) -> some View {
+        VStack(spacing: 10) {
+            TextField("Type your answer", text: $typed)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .onSubmit(checkTyped)
+            if let typeChecked { Text(typeChecked ? "✓ Correct" : "✗ Answer: \(card.answer)").font(.subheadline.weight(.semibold)).foregroundStyle(typeChecked ? .green : .red) }
+            Button("Check", action: checkTyped).buttonStyle(.borderedProminent)
+            if typeChecked != nil { ratings(for: card) }
+        }.frame(maxWidth: 760)
+    }
+
     private func normalizedAnswer(_ value: String) -> String {
         value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             .joined(separator: " ")
     }
-    private func checkTyped() { guard let card = queue.first else { return }; typeChecked = normalizedAnswer(typed) == normalizedAnswer(card.answer) }
+
+    private func checkTyped() {
+        guard let card = queue.first else { return }
+        typeChecked = normalizedAnswer(typed) == normalizedAnswer(card.answer)
+    }
+
     private var completionView: some View {
         VStack(spacing: 18) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent)
@@ -157,13 +235,11 @@ struct ReviewView: View {
             HStack(spacing: 10) {
                 sessionMetricPill(value: "\(session.positiveRate)%", label: "positive")
                 sessionMetricPill(value: "\(session.completionRate)%", label: "completed")
-            }
-            .frame(maxWidth: 520)
+            }.frame(maxWidth: 520)
             ratingSummary
             Button("Study again", action: restart).buttonStyle(.borderedProminent)
             Button("Done") { dismiss() }.buttonStyle(.bordered)
-        }
-        .padding(32)
+        }.padding(32)
     }
 
     private func sessionMetricPill(value: String, label: String) -> some View {
@@ -181,10 +257,10 @@ struct ReviewView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Session results").font(.headline)
             HStack(spacing: 8) {
-                sessionRatingPill(title: "Again", count: session.ratingCounts[1, default: 0])
-                sessionRatingPill(title: "Hard", count: session.ratingCounts[2, default: 0])
-                sessionRatingPill(title: "Good", count: session.ratingCounts[3, default: 0])
-                sessionRatingPill(title: "Easy", count: session.ratingCounts[4, default: 0])
+                sessionRatingPill(title: "Again", count: session.ratingCount(1))
+                sessionRatingPill(title: "Hard", count: session.ratingCount(2))
+                sessionRatingPill(title: "Good", count: session.ratingCount(3))
+                sessionRatingPill(title: "Easy", count: session.ratingCount(4))
             }
         }
         .frame(maxWidth: 520)
@@ -215,18 +291,12 @@ struct ReviewView: View {
         let limitReached = hasNewCardsWaitingForTomorrow
         return VStack(spacing: 14) {
             Image(systemName: limitReached ? "moon.stars.fill" : "checkmark.circle.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(RecallTheme.accent)
-            Text(limitReached ? "Daily limit reached" : "Nothing due right now")
-                .font(.title.bold())
-            Text(limitReached
-                 ? "You’ve reached today’s new-card limit. Come back tomorrow for more new cards."
-                 : "All caught up. Your next reviews will appear here when they are due.")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 60)).foregroundStyle(RecallTheme.accent)
+            Text(limitReached ? "Daily limit reached" : "Nothing due right now").font(.title.bold())
+            Text(limitReached ? "You’ve reached today’s new-card limit. Come back tomorrow for more new cards." : "All caught up. Your next reviews will appear here when they are due.")
+                .foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
-        }
-        .padding(32)
+        }.padding(32)
     }
 
     private func initializeIfNeeded() {
@@ -256,29 +326,79 @@ struct ReviewView: View {
         didInitialize = true
     }
 
-    private func restart() { audio.stop(); didInitialize = false; completed = false; queue = []; session.reset(total: 0); introducedNewCards = []; revealed = false; typed = ""; typeChecked = nil; initializeIfNeeded() }
-    private func displayText(for card: Flashcard) -> String { let source = revealed ? card.answer : card.question; guard card.type == "cloze", !revealed else { return source }; return source.replacingOccurrences(of: #"\{\{c\d+::[^}]*\}\}"#, with: "… … …", options: .regularExpression) }
+    private func restart() {
+        audio.stop()
+        didInitialize = false
+        completed = false
+        queue = []
+        session.reset(total: 0)
+        introducedNewCards = []
+        revealed = false
+        typed = ""
+        typeChecked = nil
+        initializeIfNeeded()
+    }
+
+    private func displayText(for card: Flashcard) -> String {
+        let source = revealed ? card.answer : card.question
+        guard card.type == "cloze", !revealed else { return source }
+        return source.replacingOccurrences(of: #"\{\{c\d+::[^}]*\}\}"#, with: "… … …", options: .regularExpression)
+    }
+
     private func rate(_ grade: Int) {
         guard let card = queue.first else { return }
         audio.stop()
         let wasNew = card.isNew
         let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade)
-        card.state = result.state; card.step = result.step; card.repetitions = result.repetitions; card.interval = result.interval; card.ease = result.ease; card.dueAt = result.dueAt; card.lastReviewedAt = .now
-        switch grade { case 0: card.againCount += 1; card.lapses += 1; case 1: card.hardCount += 1; case 2: card.goodCount += 1; case 3: card.easyCount += 1; default: break }
+        card.state = result.state
+        card.step = result.step
+        card.repetitions = result.repetitions
+        card.interval = result.interval
+        card.ease = result.ease
+        card.dueAt = result.dueAt
+        card.lastReviewedAt = .now
+        switch grade {
+        case 0: card.againCount += 1; card.lapses += 1
+        case 1: card.hardCount += 1
+        case 2: card.goodCount += 1
+        case 3: card.easyCount += 1
+        default: break
+        }
         HapticsService.grade(grade)
         if wasNew, !introducedNewCards.contains(card.id), let cardDeck = card.deck {
-            let today = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: .now))
-            if cardDeck.newDay != today { cardDeck.newDay = today; cardDeck.newStudiedToday = 0 }
-            cardDeck.newStudiedToday += 1
+            cardDeck.recordNewCardStudy()
             introducedNewCards.insert(card.id)
         }
-        modelContext.insert(ReviewLog(rating: grade + 1, card: card)); try? modelContext.save()
+        modelContext.insert(ReviewLog(rating: grade + 1, card: card))
+        try? modelContext.save()
         let current = queue.removeFirst()
         if grade == 0 { queue.append(current) }
         session.recordReview(completedCard: grade != 0, rating: grade + 1)
-        revealed = false; typed = ""; typeChecked = nil
+        revealed = false
+        typed = ""
+        typeChecked = nil
         if queue.isEmpty { completed = true }
     }
 }
 
-private struct RatingButton: View { let title: String; let subtitle: String; let value: Int; let action: (Int) -> Void; var body: some View { Button { action(value) } label: { VStack(spacing: 2) { Text(title).font(.subheadline.weight(.semibold)); Text(subtitle).font(.caption2).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, minHeight: 42) }.buttonStyle(.borderedProminent).controlSize(.small).frame(maxWidth: .infinity).accessibilityLabel("\(title), \(subtitle)").accessibilityHint("Rate this card as \(title).") } }
+private struct RatingButton: View {
+    let title: String
+    let subtitle: String
+    let value: Int
+    let action: (Int) -> Void
+
+    var body: some View {
+        Button { action(value) } label: {
+            VStack(spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(subtitle).font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 42)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityHint("Rate this card as \(title).")
+    }
+}

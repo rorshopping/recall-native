@@ -160,7 +160,7 @@ struct SettingsView: View {
                 if let backupURL { ShareLink(item: backupURL) { Label("Share backup", systemImage: "square.and.arrow.up") }.padding(40) }
             }
             .sheet(isPresented: $showingAbout) { AboutSheet() }
-            .sheet(isPresented: $showingAIInfo) { AIInfoSheet() }
+            .sheet(isPresented: $showingAIInfo) { OnDeviceAISettingsView() }
             .sheet(isPresented: $showingAIImport) { AIImportView() }
             .sheet(isPresented: $showingLicenses) { LicensesSheet() }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
@@ -276,25 +276,6 @@ private struct AboutSheet: View {
                 }
             }
             .navigationTitle("About Recall")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }
-    }
-}
-
-private struct AIInfoSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Model") {
-                    Text("Gemma 4 E2B").font(.headline)
-                    Text("Downloaded on demand and executed locally with LiteRT-LM.").foregroundStyle(.secondary)
-                }
-                Section("Privacy") {
-                    Text("Study material is processed on-device for generation and is not sent to a cloud AI service by Recall.").foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("On-device AI")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }

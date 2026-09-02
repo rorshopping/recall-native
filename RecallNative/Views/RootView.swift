@@ -14,6 +14,7 @@ struct ImportURLItem: Identifiable {
 
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var offerCards: [Flashcard]
     @Query private var offerReviews: [ReviewLog]
     @Query private var offerDecks: [Deck]
@@ -30,6 +31,9 @@ struct RootView: View {
     @AppStorage("designLabTaps") private var designLabTaps = 0
     @AppStorage("recall.launchOffer.v1.dismissed") private var launchOfferDismissed = false
     @AppStorage(BiometricLockService.enabledKey) private var biometricEnabled = false
+    @AppStorage("iCloudEnabled") private var iCloudEnabled = false
+
+    private let iCloud = ICloudSyncService()
 
     private enum LockState {
         case checking, locked, unlocked
@@ -57,10 +61,6 @@ struct RootView: View {
         let hasEnoughReviews = offerReviews.count >= 3
         let hasStudyHistory = !offerReviews.isEmpty
         let studiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
-
-        // The native model does not yet persist the original reducer's
-        // totalCreated counter. Card count is the closest faithful proxy and
-        // prevents deleted/filtered cards from being treated as engagement.
         let hasEnoughCreatedCards = offerCards.count > 6
 
         return hasNonSampleDeck
@@ -104,6 +104,12 @@ struct RootView: View {
         .onChange(of: offerCards.count) { _, _ in scheduleLaunchOfferIfEligible() }
         .onChange(of: offerReviews.count) { _, _ in scheduleLaunchOfferIfEligible() }
         .onChange(of: offerDecks.count) { _, _ in scheduleLaunchOfferIfEligible() }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                lastBackgroundedAt = Date()
+                syncBeforeSuspension()
+            }
+        }
         .onOpenURL { url in
             guard ["recall", "recall-flashcards"].contains(url.scheme?.lowercased()), url.host?.lowercased() == "import" else { return }
             importURL = ImportURLItem(url: url)
@@ -125,6 +131,17 @@ struct RootView: View {
             let elapsed = lastBackgroundedAt.map { Date().timeIntervalSince($0) } ?? .infinity
             guard elapsed > BiometricLockService.gracePeriod else { return }
             Task { await checkAndLock() }
+        }
+    }
+
+    private func syncBeforeSuspension() {
+        guard iCloudEnabled else { return }
+        do {
+            try modelContext.save()
+            _ = try iCloud.push(context: modelContext)
+        } catch {
+            // Background sync is best-effort. Settings exposes the current
+            // sync state and lets the user retry without blocking suspension.
         }
     }
 

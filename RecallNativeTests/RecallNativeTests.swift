@@ -105,6 +105,27 @@ struct RecallNativeTests {
         let data = try JSONEncoder.iso8601.encode(backup)
         #expect(throws: BackupService.BackupError.idCollision) { try BackupService.restore(data, context: context, replaceExisting: false) }
     }
+
+    @Test func iCloudSyncEnvelopeRoundTrips() throws {
+        let timestamp = Date(timeIntervalSince1970: 1_234_567)
+        let envelope = ICloudSyncService.SyncEnvelope(
+            schemaVersion: ICloudSyncService.SyncEnvelope.currentSchemaVersion,
+            deviceID: "device-test",
+            updatedAt: timestamp,
+            backupData: Data("backup".utf8)
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try encoder.encode(envelope)
+        let decoded = try decoder.decode(ICloudSyncService.SyncEnvelope.self, from: data)
+        #expect(decoded == envelope)
+    }
+
+    @Test func iCloudSyncEnvelopeUsesCurrentSchema() {
+        #expect(ICloudSyncService.SyncEnvelope.currentSchemaVersion == 1)
+    }
 }
 
 private extension JSONEncoder {

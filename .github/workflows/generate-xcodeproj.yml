@@ -28,6 +28,15 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project RecallNative.xcodeproj \
+            -scheme RecallNative \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
       - name: Commit generated project
         run: |
           git config user.name "github-actions[bot]"

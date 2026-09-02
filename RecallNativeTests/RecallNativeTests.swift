@@ -51,6 +51,16 @@ struct RecallNativeTests {
         #expect(card.ease == 2.5)
     }
 
+    @Test func learningAndRelearningCardsAreNotNew() {
+        let learning = Flashcard(question: "Q", answer: "A")
+        learning.state = "learning"
+        #expect(!learning.isNew)
+
+        let relearning = Flashcard(question: "Q", answer: "A")
+        relearning.state = "relearning"
+        #expect(!relearning.isNew)
+    }
+
     @Test func importedDeckPreservesCardMetadata() throws {
         let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
         let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))

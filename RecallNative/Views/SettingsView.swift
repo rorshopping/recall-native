@@ -134,7 +134,7 @@ struct SettingsView: View {
             }
             .confirmationDialog("Import this backup?", isPresented: $showingImportConfirmation, titleVisibility: .visible) { Button("Import and Replace", role: .destructive) { performPendingImport() }; Button("Cancel", role: .cancel) { pendingImportData = nil } } message: { Text("This replaces all current decks, cards, and review history. This cannot be undone.") }
             .confirmationDialog("Restore from iCloud?", isPresented: $showingICloudRestoreConfirmation, titleVisibility: .visible) { Button("Restore and Replace", role: .destructive) { restoreFromICloud() }; Button("Cancel", role: .cancel) {} } message: { Text("This replaces all current local decks, cards, and review history with the latest iCloud backup. This cannot be undone.") }
-            .confirmationDialog("Delete all local study data?", isPresented: $showingResetConfirmation, titleVisibility: .visible) { Button("Delete Everything", role: .destructive) { resetData() }; Button("Cancel", role: .cancel) {} }
+            .confirmationDialog("Delete all local study data?", isPresented: $showingResetConfirmation, titleVisibility: .visible) { Button("Reset to sample deck", role: .destructive) { resetData() }; Button("Cancel", role: .cancel) {} } message: { Text("This deletes all local decks, cards, and review history and restores the Spanish Basics sample deck. This cannot be undone.") }
         }
     }
     private var syncStateTitle: String { switch iCloudState { case .unavailable: return "iCloud status"; case .noBackup, .upToDate, .localOnly: return "iCloud backup"; case .remoteNewer: return "Sync conflict" } }
@@ -169,7 +169,7 @@ struct SettingsView: View {
     private func exportBackup() { do { let data = try BackupService.makeBackup(context: modelContext); let url = FileManager.default.temporaryDirectory.appendingPathComponent("Recall-Backup-\(Date().formatted(.iso8601.year().month().day())).json"); try data.write(to: url, options: .atomic); backupURL = url; showingShare = true } catch { errorMessage = error.localizedDescription } }
     private func prepareImport(_ result: Result<[URL], Error>) { guard case .success(let urls) = result, let url = urls.first else { return }; let secured = url.startAccessingSecurityScopedResource(); defer { if secured { url.stopAccessingSecurityScopedResource() } }; do { let data = try Data(contentsOf: url); _ = try BackupService.validate(data); pendingImportData = data; showingImportConfirmation = true } catch { errorMessage = "That file is not a valid Recall backup." } }
     private func performPendingImport() { guard let data = pendingImportData else { return }; do { try BackupService.restore(data, context: modelContext, replaceExisting: true); pendingImportData = nil } catch { errorMessage = error.localizedDescription } }
-    private func resetData() { do { try modelContext.fetch(FetchDescriptor<ReviewLog>()).forEach(modelContext.delete); try modelContext.fetch(FetchDescriptor<Flashcard>()).forEach(modelContext.delete); try modelContext.fetch(FetchDescriptor<Deck>()).forEach(modelContext.delete); try modelContext.save() } catch { errorMessage = error.localizedDescription } }
+    private func resetData() { do { try SeedDataService.resetToSample(context: modelContext) } catch { errorMessage = error.localizedDescription } }
 }
 
 private struct AboutSheet: View {

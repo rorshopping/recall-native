@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OnDeviceAISettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isInstalled = false
     @State private var isDownloading = false
     @State private var progress: ModelDownloadProgress?
@@ -22,6 +23,16 @@ struct OnDeviceAISettingsView: View {
                     Text(provider.detail).font(.subheadline).foregroundStyle(.secondary)
                     if provider.isAvailable {
                         Label("Inference stays on this iPhone", systemImage: "iphone")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if provider == .apple {
+                        Text(OnDeviceAIProvider.appleAvailabilityDetail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Apple status: \(OnDeviceAIProvider.appleAvailabilityDetail)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -81,6 +92,10 @@ struct OnDeviceAISettingsView: View {
             .navigationTitle("On-device AI")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .task { await refresh() }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                Task { await refresh() }
+            }
             .confirmationDialog("Remove Gemma 4?", isPresented: $showingRemoveConfirmation, titleVisibility: .visible) {
                 Button("Remove Model", role: .destructive) {
                     Task { await LiteRTModelStore.shared.deleteDownloadedModel(); await refresh() }

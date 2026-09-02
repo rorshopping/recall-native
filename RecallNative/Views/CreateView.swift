@@ -89,7 +89,13 @@ struct CreateView: View {
     }
 
     private var canGenerate: Bool { guard modelAvailable, !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }; if mode == .ask { return !askInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; if mode == .explain { return !explainInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; return true }
-    private var canSaveGenerated: Bool { EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) && (subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck) }
+    private var canSaveGenerated: Bool {
+        let withinFreeCardLimit = subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck
+        if selectedDeckID != nil {
+            return withinFreeCardLimit
+        }
+        return EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) && withinFreeCardLimit
+    }
     private var suggestedDeckName: String { let words = sourceText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").prefix(5).joined(separator: " "); return words.isEmpty ? "New deck" : words.capitalized }
     private func downloadModel() { guard !isDownloadingModel else { return }; isDownloadingModel = true; downloadProgress = .init(fraction: 0, bytesWritten: 0, totalBytes: 0); Task { do { _ = try await modelStore.downloadModel { p in Task { @MainActor in downloadProgress = p } }; await MainActor.run { modelAvailable = true; isDownloadingModel = false } } catch { await MainActor.run { errorMessage = error.localizedDescription; isDownloadingModel = false } } } }
     private func handleImport(_ result: Result<[URL], Error>) { guard case .success(let urls) = result, let url = urls.first else { return }; do { sourceText = try importer.extractText(from: url); sourceName = url.deletingPathExtension().lastPathComponent; mode = .flashcards } catch { errorMessage = error.localizedDescription } }

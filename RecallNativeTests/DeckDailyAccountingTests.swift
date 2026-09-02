@@ -38,4 +38,24 @@ struct DeckDailyAccountingTests {
         deck.recordNewCardStudy()
         #expect(deck.newRemainingToday == 0)
     }
+
+    @Test func recordingPastDailyLimitDoesNotIncreaseUsage() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = calendar.date(from: DateComponents(year: 2026, month: 9, day: 2))!
+        let deck = Deck(name: "Capped deck")
+        deck.newLimit = 2
+        deck.cards = [
+            Flashcard(question: "1", answer: "A"),
+            Flashcard(question: "2", answer: "B"),
+            Flashcard(question: "3", answer: "C")
+        ]
+
+        deck.recordNewCardStudy(on: day, calendar: calendar)
+        deck.recordNewCardStudy(on: day.addingTimeInterval(60), calendar: calendar)
+        deck.recordNewCardStudy(on: day.addingTimeInterval(120), calendar: calendar)
+
+        #expect(deck.newStudiedToday == 2)
+        #expect(deck.newRemainingToday == 0)
+    }
 }

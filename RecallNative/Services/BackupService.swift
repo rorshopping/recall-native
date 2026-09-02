@@ -54,6 +54,122 @@ struct RecallBackup: Codable {
     }
     struct ReviewRecord: Codable { let id: UUID; let reviewedAt: Date; let rating: Int; let cardID: UUID? }
     let version: Int; let exportedAt: Date; let decks: [DeckRecord]; let cards: [CardRecord]; let reviews: [ReviewRecord]
+
+    private struct LegacyDeck: Decodable {
+        let id: UUID
+        let name: String
+        let emoji: String?
+        let createdAt: Double?
+        let newLimit: Int?
+        let newDay: String?
+        let newStudiedToday: Int?
+        let cards: [LegacyCard]?
+    }
+    private struct LegacyCard: Decodable {
+        let id: UUID
+        let front: String
+        let back: String
+        let hint: String?
+        let tags: String?
+        let type: String?
+        let typeIn: Bool?
+        let media: LegacyMedia?
+        let ease: Double?
+        let interval: Int?
+        let reps: Int?
+        let lapses: Int?
+        let due: Double?
+        let lastReviewed: Double?
+        let state: String?
+        let step: Int?
+        let stats: LegacyStats?
+        let createdAt: Double?
+    }
+    private struct LegacyMedia: Decodable { let type: String; let uri: String }
+    private struct LegacyStats: Decodable { let again: Int?; let hard: Int?; let good: Int?; let easy: Int? }
+
+    private enum RootKeys: String, CodingKey { case version, schemaVersion, exportedAt, decks, cards, reviews, meta }
+
+    init(version: Int, exportedAt: Date, decks: [DeckRecord], cards: [CardRecord], reviews: [ReviewRecord]) {
+        self.version = version; self.exportedAt = exportedAt; self.decks = decks; self.cards = cards; self.reviews = reviews
+    }
+
+    init(from decoder: Decoder) throws {
+        let root = try decoder.container(keyedBy: RootKeys.self)
+        if let version = try root.decodeIfPresent(Int.self, forKey: .version),
+           let exportedAt = try root.decodeIfPresent(Date.self, forKey: .exportedAt),
+           let decks = try root.decodeIfPresent([DeckRecord].self, forKey: .decks),
+           let cards = try root.decodeIfPresent([CardRecord].self, forKey: .cards),
+           let reviews = try root.decodeIfPresent([ReviewRecord].self, forKey: .reviews) {
+            self.init(version: version, exportedAt: exportedAt, decks: decks, cards: cards, reviews: reviews)
+            return
+        }
+
+        let legacyDecks = try root.decode([LegacyDeck].self, forKey: .decks)
+        let meta = try root.decodeIfPresent(LegacyMeta.self, forKey: .meta)
+        let exportedAt = (try root.decodeIfPresent(Date.self, forKey: .exportedAt)) ?? .now
+        var decks: [DeckRecord] = []
+        var cards: [CardRecord] = []
+        for legacyDeck in legacyDecks {
+            let deck = DeckRecord(
+                id: legacyDeck.id,
+                name: legacyDeck.name,
+                emoji: legacyDeck.emoji ?? "📚",
+                createdAt: Self.date(legacyDeck.createdAt) ?? .now,
+                newLimit: legacyDeck.newLimit ?? 20,
+                newDay: legacyDeck.newDay ?? "",
+                newStudiedToday: legacyDeck.newStudiedToday ?? 0
+            )
+            decks.append(deck)
+            for card in legacyDeck.cards ?? [] {
+                let mediaType = card.media?.type == "image" || card.media?.type == "audio" ? card.media?.type : nil
+                cards.append(CardRecord(
+                    id: card.id,
+                    question: card.front,
+                    answer: card.back,
+                    hint: card.hint ?? "",
+                    tags: card.tags ?? "",
+                    type: card.type == "cloze" ? "cloze" : "basic",
+                    typeInAnswer: card.typeIn ?? false,
+                    mediaType: mediaType,
+                    mediaURI: mediaType == nil ? nil : card.media?.uri,
+                    createdAt: Self.date(card.createdAt) ?? .now,
+                    dueAt: Self.date(card.due) ?? .now,
+                    interval: max(0, card.interval ?? 0),
+                    ease: max(1.3, card.ease ?? 2.5),
+                    repetitions: max(0, card.reps ?? 0),
+                    state: ["new", "learning", "review", "relearning"].contains(card.state ?? "") ? card.state! : "new",
+                    step: max(0, card.step ?? 0),
+                    lapses: max(0, card.lapses ?? 0),
+                    againCount: max(0, card.stats?.again ?? 0),
+                    hardCount: max(0, card.stats?.hard ?? 0),
+                    goodCount: max(0, card.stats?.good ?? 0),
+                    easyCount: max(0, card.stats?.easy ?? 0),
+                    lastReviewedAt: Self.date(card.lastReviewed),
+                    deckID: legacyDeck.id
+                ))
+            }
+        }
+        _ = meta
+        self.init(version: 1, exportedAt: exportedAt, decks: decks, cards: cards, reviews: [])
+    }
+
+    private struct LegacyMeta: Decodable {
+        let streak: Int?
+        let lastStudyDate: String?
+        let studiedToday: Int?
+        let totalReviewed: Int?
+        let totalCreated: Int?
+        let entitlement: [String: Bool]?
+        let iCloudEnabled: Bool?
+        let history: [String: Int]?
+        let hapticsEnabled: Bool?
+    }
+
+    private static func date(_ milliseconds: Double?) -> Date? {
+        guard let milliseconds else { return nil }
+        return Date(timeIntervalSince1970: milliseconds / 1000)
+    }
 }
 
 enum BackupService {

@@ -21,7 +21,13 @@ struct ReviewMetrics {
         self.dailyCounts = counts
     }
 
+    /// Total completed reviews, including aggregate history imported from the original Recall backup format.
     var total: Int { reviews.count + aggregateHistory.values.reduce(0, +) }
+
+    /// Reviews with an actual rating. Imported aggregate history has no per-review rating, so it is excluded.
+    var ratedTotal: Int { reviews.count }
+
+    var hasUnratedHistory: Bool { total > ratedTotal }
 
     var ratingCounts: [Int: Int] {
         reviews.reduce(into: [Int: Int]()) { counts, review in
@@ -35,16 +41,16 @@ struct ReviewMetrics {
     }
 
     var positiveRate: Int {
-        guard total > 0 else { return 0 }
+        guard !reviews.isEmpty else { return 0 }
         let positive = reviews.reduce(into: 0) { count, review in
             if review.rating >= 3 { count += 1 }
         }
-        return Int((Double(positive) / Double(total) * 100).rounded())
+        return Int((Double(positive) / Double(reviews.count) * 100).rounded())
     }
 
     func ratingPercentage(_ rating: Int) -> Int {
-        guard total > 0 else { return 0 }
-        return Int((Double(ratingCounts[rating, default: 0]) / Double(total) * 100).rounded())
+        guard !reviews.isEmpty else { return 0 }
+        return Int((Double(ratingCounts[rating, default: 0]) / Double(reviews.count) * 100).rounded())
     }
 
     func count(inLastDays days: Int, endingOn date: Date = .now) -> Int {

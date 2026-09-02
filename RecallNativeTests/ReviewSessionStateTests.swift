@@ -49,4 +49,34 @@ final class ReviewSessionStateTests: XCTestCase {
         XCTAssertFalse(session.isComplete)
         XCTAssertEqual(session.reviewed, 0)
     }
+
+    func testRatingCountsAndPositiveRate() {
+        var session = ReviewSessionState(total: 4)
+
+        session.recordReview(completedCard: false, rating: 1)
+        session.recordReview(completedCard: false, rating: 2)
+        session.recordReview(completedCard: true, rating: 3)
+        session.recordReview(completedCard: true, rating: 4)
+
+        XCTAssertEqual(session.ratingCount(1), 1)
+        XCTAssertEqual(session.ratingCount(2), 1)
+        XCTAssertEqual(session.ratingCount(3), 1)
+        XCTAssertEqual(session.ratingCount(4), 1)
+        XCTAssertEqual(session.positiveRate, 50)
+        XCTAssertEqual(session.completionRate, 50)
+    }
+
+    func testInvalidRatingsDoNotPolluteSessionMetrics() {
+        var session = ReviewSessionState(total: 1)
+
+        session.recordReview(completedCard: false, rating: 0)
+        session.recordReview(completedCard: false, rating: 5)
+        session.recordReview(completedCard: true, rating: nil)
+
+        XCTAssertEqual(session.reviewed, 3)
+        XCTAssertEqual(session.ratingCount(0), 0)
+        XCTAssertEqual(session.ratingCount(5), 0)
+        XCTAssertEqual(session.positiveRate, 0)
+        XCTAssertEqual(session.completionRate, 100)
+    }
 }

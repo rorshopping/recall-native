@@ -4,7 +4,6 @@ import SwiftData
 struct ImportLinkView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query private var decks: [Deck]
     let url: URL
     @State private var phase: Phase = .confirm
     @State private var error = ""
@@ -100,22 +99,10 @@ struct ImportLinkView: View {
         phase = .loading
         do {
             let data = try await loadData()
-            let parsed = try DeckImportService.parse(data)
-            let deck = Deck(name: parsed.name, emoji: "📚")
-            modelContext.insert(deck)
-            for card in parsed.cards {
-                modelContext.insert(Flashcard(
-                    question: card.front.trimmingCharacters(in: .whitespacesAndNewlines),
-                    answer: card.back.trimmingCharacters(in: .whitespacesAndNewlines),
-                    hint: card.hint ?? "",
-                    tags: card.tags ?? "",
-                    deck: deck
-                ))
-            }
-            try modelContext.save()
+            let deck = try DeckImportService.add(data, to: modelContext)
             importedDeck = deck
-            importedName = parsed.name
-            importedCount = parsed.cards.count
+            importedName = deck.name
+            importedCount = deck.cards.count
             phase = .done
         } catch {
             self.error = error.localizedDescription

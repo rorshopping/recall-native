@@ -49,7 +49,10 @@ struct LocalAIService: OnDeviceAIService {
     func generateFlashcards(from text: String) async throws -> [GeneratedCard] {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw AIServiceError.emptyInput }
-        guard cleaned.count >= 40 else { throw AIServiceError.insufficientContent }
+        // Recall's original Create flow accepts any non-empty topic or notes.
+        // Do not impose an additional character-count gate here: short topics
+        // should still reach Gemma, which can decide whether there is enough
+        // material to produce useful cards.
         guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
         do {
             let engine = RecallLiteRTEngine(modelPath: modelURL.path)

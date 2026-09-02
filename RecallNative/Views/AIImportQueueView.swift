@@ -201,6 +201,9 @@ struct AIImportQueueView: View {
                 Task {
                     _ = await queue.enqueue(contentsOf: inputs)
                     await queue.startIfNeeded()
+                    if #available(iOS 26.0, *) {
+                        AIImportBackgroundTask.shared.submitIfNeeded()
+                    }
                     await refresh()
                 }
             }

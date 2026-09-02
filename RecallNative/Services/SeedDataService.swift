@@ -53,10 +53,12 @@ enum SeedDataService {
     private static func matchesSampleCards(_ cards: [Flashcard]) -> Bool {
         guard cards.count == sampleCards.count else { return false }
 
-        let actual = Set(cards.map { card in
-            (card.question, card.answer, card.hint, card.tags)
-        })
-        let expected = Set(sampleCards.map { ($0.0, $0.1, $0.2, $0.3) })
+        func signature(_ question: String, _ answer: String, _ hint: String, _ tags: String) -> String {
+            "\(question)\u{1F}\(answer)\u{1F}\(hint)\u{1F}\(tags)"
+        }
+
+        let actual = Set(cards.map { signature($0.question, $0.answer, $0.hint, $0.tags) })
+        let expected = Set(sampleCards.map { signature($0.0, $0.1, $0.2, $0.3) })
         return actual == expected
     }
 }

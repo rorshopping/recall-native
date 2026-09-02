@@ -37,9 +37,8 @@ struct RootView: View {
         let hasMultipleDecks = offerDecks.count > 1
         let hasEnoughCards = offerCards.count > 6
         let hasEnoughReviews = offerReviews.count >= 3
-        let hasStudyHistory = !offerReviews.isEmpty
-        let studiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
-        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory || studiedToday
+        let hasStudyHistory = !offerReviews.isEmpty || !ReviewHistoryStore.load().isEmpty
+        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory
     }
     var body: some View {
         TabView(selection: $selectedTab) {

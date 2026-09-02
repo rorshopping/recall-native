@@ -34,12 +34,16 @@ enum OnDeviceAIProvider: Sendable, Equatable {
         }
     }
 
-    /// Explains the current Apple model readiness state.
+    /// Explains the current Apple model readiness state, including language support.
     static var appleAvailabilityDetail: String {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
-            switch SystemLanguageModel.default.availability {
+            let model = SystemLanguageModel.default
+            switch model.availability {
             case .available:
+                if !model.supportsLocale(Locale.current) {
+                    return "Apple's on-device model is ready but doesn't support the current language, so Gemma 4 is used as the fallback."
+                }
                 return "Apple's on-device model is ready."
             case .unavailable(.modelNotReady):
                 return "Apple's model is not ready yet, so Gemma 4 is used as the fallback."
@@ -55,18 +59,29 @@ enum OnDeviceAIProvider: Sendable, Equatable {
         return "Apple's on-device model requires a supported system; Gemma 4 is the local fallback."
     }
 
-    /// Returns the current provider. `appleAvailable` is injectable for deterministic tests.
-    static func current(gemmaAvailable: Bool, appleAvailable: Bool? = nil) -> OnDeviceAIProvider {
+    /// Returns the current provider. Availability inputs are injectable for deterministic tests.
+    static func current(
+        gemmaAvailable: Bool,
+        appleAvailable: Bool? = nil,
+        appleSupportsLocale: Bool? = nil
+    ) -> OnDeviceAIProvider {
         #if canImport(FoundationModels)
         if let appleAvailable {
-            return appleAvailable ? .apple : (gemmaAvailable ? .gemma : .unavailable)
-        }
-        if #available(iOS 26.0, *), SystemLanguageModel.default.isAvailable {
+            guard appleAvailable else { return gemmaAvailable ? .gemma : .unavailable }
+            if appleSupportsLocale == false { return gemmaAvailable ? .gemma : .unavailable }
             return .apple
+        }
+        if #available(iOS 26.0, *) {
+            let model = SystemLanguageModel.default
+            if model.isAvailable && model.supportsLocale(Locale.current) {
+                return .apple
+            }
         }
         #else
         if let appleAvailable {
-            return appleAvailable ? .apple : (gemmaAvailable ? .gemma : .unavailable)
+            return appleAvailable && appleSupportsLocale != false
+                ? .apple
+                : (gemmaAvailable ? .gemma : .unavailable)
         }
         #endif
         return gemmaAvailable ? .gemma : .unavailable

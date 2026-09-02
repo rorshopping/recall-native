@@ -47,9 +47,12 @@ struct RootView: View {
     private var hasEarnedValue: Bool {
         let nonSampleDeck = offerDecks.contains { deck in
             let name = deck.name.lowercased()
-            return name != "spanish basics" && name != "spanish basics — sample"
+            let normalizedName = name.replacingOccurrences(of: "—", with: "-")
+            return normalizedName != "spanish basics" && normalizedName != "spanish basics - sample"
         }
-        return nonSampleDeck || offerDecks.count > 1 || offerCards.count > 6 || offerReviews.count >= 3
+        let hasStudyHistory = !offerReviews.isEmpty
+        let studiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
+        return nonSampleDeck || offerDecks.count > 1 || offerCards.count > 6 || offerReviews.count >= 3 || hasStudyHistory || studiedToday
     }
 
     var body: some View {

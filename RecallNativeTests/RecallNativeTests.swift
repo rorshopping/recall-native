@@ -110,8 +110,8 @@ struct RecallNativeTests {
         #expect(session.total == 5)
         #expect(session.reviewed == 0)
         #expect(session.completed == 0)
-        #expect(session.progress == 1)
-        #expect(session.progressFraction == 0.2)
+        #expect(session.progress == 0)
+        #expect(session.progressFraction == 0)
     }
 
     @Test func reviewSessionCountsCompletedCards() {
@@ -119,12 +119,24 @@ struct RecallNativeTests {
         session.recordReview(completedCard: true)
         #expect(session.reviewed == 1)
         #expect(session.completed == 1)
-        #expect(session.progress == 2)
+        #expect(session.progress == 1)
 
         session.recordReview(completedCard: false)
         #expect(session.reviewed == 2)
         #expect(session.completed == 1)
-        #expect(session.progress == 2)
+        #expect(session.progress == 1)
+    }
+
+    @Test func reviewSessionAgainDoesNotAdvanceProgress() {
+        var session = ReviewSessionState(total: 2)
+        session.recordReview(completedCard: false)
+        #expect(session.reviewed == 1)
+        #expect(session.completed == 0)
+        #expect(session.progress == 0)
+        #expect(session.progressFraction == 0)
+
+        session.recordReview(completedCard: true)
+        #expect(session.progress == 1)
     }
 
     @Test func reviewSessionResetClearsAccounting() {
@@ -134,7 +146,8 @@ struct RecallNativeTests {
         #expect(session.total == 7)
         #expect(session.reviewed == 0)
         #expect(session.completed == 0)
-        #expect(session.progress == 1)
+        #expect(session.progress == 0)
+        #expect(session.progressFraction == 0)
     }
 
     @Test func backupRejectsOrphanedCard() throws {

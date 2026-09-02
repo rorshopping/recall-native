@@ -7,6 +7,7 @@ final class Deck {
     var name: String
     var emoji: String
     var createdAt: Date
+    @Relationship(deleteRule: .cascade, inverse: \Flashcard.deck)
     var cards: [Flashcard]
     var newLimit: Int
     var newStudiedToday: Int

@@ -86,7 +86,8 @@ struct LocalAIService: OnDeviceAIService {
                     let prompt = attempt == 0 ? Self.systemPrompt : Self.systemPrompt + "\n\nIMPORTANT: Your previous response was invalid. Retry with only valid JSON matching the requested schema."
                     let raw = try await engine.generateDeckJSON(topic: topic, systemPrompt: prompt)
                     do {
-                        return try Self.parseDeck(raw)
+                        let normalized = try Self.normalizeJSON(raw)
+                        return try Self.parseDeckData(normalized, errorPrefix: "Gemma 4")
                     } catch {
                         lastError = error
                         if attempt == 1 { throw error }
@@ -125,5 +126,28 @@ struct LocalAIService: OnDeviceAIService {
         guard !parsed.isEmpty else { throw AIServiceError.insufficientContent }
         let generatedName = (object["deck"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return GeneratedDeck(name: generatedName, cards: Array(parsed.prefix(25)))
+    }
+
+    private static func normalizeJSON(_ raw: String) throws -> Data {
+        let cleaned = raw
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let data = cleaned.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data), JSONSerialization.isValidJSONObject(object) {
+            return data
+        }
+
+        guard let start = cleaned.firstIndex(of: "{"), let end = cleaned.lastIndex(of: "}"), start < end else {
+            throw AIServiceError.generationFailed("Gemma 4 returned no usable JSON. Please try again.")
+        }
+        let slice = String(cleaned[start...end])
+        let fixed = slice
+            .replacingOccurrences(of: #"\\(?![\"\\/bfnrtu])"#, with: #"\\\\"#, options: .regularExpression)
+            .replacingOccurrences(of: #",\s*([}\]])"#, with: #"$1"#, options: .regularExpression)
+        guard let data = fixed.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data), JSONSerialization.isValidJSONObject(object) else {
+            throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON. Please try again.")
+        }
+        return data
     }
 }

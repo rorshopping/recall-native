@@ -34,6 +34,30 @@ enum OnDeviceAIProvider: Sendable, Equatable {
         }
     }
 
+    /// Explains why Apple's model is not currently active. This is intentionally separate
+    /// from provider selection so the app can distinguish an unsupported device from a model
+    /// that is still downloading or Apple Intelligence being disabled.
+    static var appleAvailabilityDetail: String {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                return "Apple's on-device model is ready."
+            case .unavailable(.modelNotReady):
+                return "Apple's model is not ready yet, so Gemma 4 is used as the fallback."
+            case .unavailable(.appleIntelligenceNotEnabled):
+                return "Apple Intelligence is turned off, so Gemma 4 is used as the local fallback."
+            case .unavailable(.deviceNotEligible):
+                return "This device can't use Apple's on-device model, so Gemma 4 is used locally."
+            @unknown default:
+                return "Apple's on-device model is currently unavailable, so Gemma 4 is used as the fallback."
+            }
+        }
+        #endif
+        return "Apple's on-device model requires a supported system; Gemma 4 is the local fallback."
+    }
+
+    /// Returns the current provider. `appleAvailable` is injectable for deterministic tests.
     static func current(gemmaAvailable: Bool, appleAvailable: Bool? = nil) -> OnDeviceAIProvider {
         #if canImport(FoundationModels)
         if let appleAvailable {

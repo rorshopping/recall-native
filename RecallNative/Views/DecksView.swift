@@ -18,6 +18,7 @@ struct DecksView: View {
     @State private var showingStudyAll = false
     @State private var showingCreate = false
     @State private var showingAIImport = false
+    @State private var createdDeck: Deck?
     @State private var searchText = ""
     @State private var deckSort: DeckSort = .recent
     @StateObject private var subscriptions = SubscriptionService()
@@ -178,11 +179,18 @@ struct DecksView: View {
                 .accessibilityLabel(canCreateDeck ? "New deck" : "Unlock more decks")
             }
             .task { await subscriptions.load() }
-            .sheet(isPresented: $showingNewDeck) { NewDeckSheet() }
+            .sheet(isPresented: $showingNewDeck) {
+                NewDeckSheet { deck in
+                    createdDeck = deck
+                }
+            }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .sheet(isPresented: $showingCreate) { CreateView() }
             .sheet(isPresented: $showingAIImport) { AIImportView() }
             .fullScreenCover(isPresented: $showingStudyAll) { ReviewView(studyAll: false) }
+            .navigationDestination(item: $createdDeck) { deck in
+                DeckDetailView(deck: deck)
+            }
         }
     }
 }
@@ -234,6 +242,7 @@ private struct NewDeckSheet: View {
     @Environment(\.modelContext) private var modelContext
     @State private var name = ""
     @State private var emoji = "📚"
+    let onCreated: (Deck) -> Void
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedEmoji: String { emoji.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -261,8 +270,10 @@ private struct NewDeckSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
                         guard canCreate else { return }
-                        modelContext.insert(Deck(name: trimmedName, emoji: trimmedEmoji.isEmpty ? "📚" : String(trimmedEmoji.prefix(2))))
+                        let deck = Deck(name: trimmedName, emoji: trimmedEmoji.isEmpty ? "📚" : String(trimmedEmoji.prefix(2)))
+                        modelContext.insert(deck)
                         try? modelContext.save()
+                        onCreated(deck)
                         dismiss()
                     }
                     .disabled(!canCreate)

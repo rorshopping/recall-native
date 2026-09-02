@@ -13,9 +13,11 @@ struct AIImportView: View {
     @State private var showingImporter = false
     @State private var errorMessage: String?
     @State private var showingSuccess = false
+    @State private var showingDeckDetail = false
     @State private var showingPaywall = false
     @State private var importedName = ""
     @State private var importedCount = 0
+    @State private var importedDeck: Deck?
 
     private let prompt = """
 Create a set of flashcards for studying. Reply with ONLY valid JSON in this exact shape:
@@ -76,8 +78,20 @@ Rules:
                 catch { errorMessage = "Could not read that JSON file." }
             }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
+            .sheet(isPresented: $showingDeckDetail) {
+                if let importedDeck {
+                    DeckDetailView(deck: importedDeck)
+                }
+            }
             .alert("Could not import", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") {} } message: { Text(errorMessage ?? "") }
-            .alert("Deck created", isPresented: $showingSuccess) { Button("Done") { dismiss() } } message: { Text("\(importedName) · \(importedCount) cards added.") }
+            .alert("Deck created", isPresented: $showingSuccess) {
+                Button("Open") {
+                    showingDeckDetail = importedDeck != nil
+                }
+                Button("Done") { dismiss() }
+            } message: {
+                Text("\(importedName) · \(importedCount) cards added.")
+            }
         }
     }
 
@@ -99,6 +113,7 @@ Rules:
                 modelContext.insert(Flashcard(question: card.front.trimmingCharacters(in: .whitespacesAndNewlines), answer: card.back.trimmingCharacters(in: .whitespacesAndNewlines), hint: card.hint ?? "", tags: card.tags ?? "", deck: deck))
             }
             try modelContext.save()
+            importedDeck = deck
             importedName = parsed.name
             importedCount = parsed.cards.count
             json = ""

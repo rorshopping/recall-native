@@ -4,18 +4,20 @@ import Testing
 struct OnDeviceAIProviderTests {
     @Test
     func appleProviderWinsWhenAvailable() {
-        #expect(OnDeviceAIProvider.current(gemmaAvailable: true, appleAvailable: true) == .apple)
-        #expect(OnDeviceAIProvider.current(gemmaAvailable: false, appleAvailable: true) == .apple)
+        let withGemma = OnDeviceAIProvider.current(gemmaAvailable: true, appleAvailable: true)
+        let withoutGemma = OnDeviceAIProvider.current(gemmaAvailable: false, appleAvailable: true)
+        #expect(withGemma.displayName == "Apple on-device model")
+        #expect(withoutGemma.displayName == "Apple on-device model")
     }
 
     @Test
     func gemmaIsTheFallbackWhenAppleIsUnavailable() {
-        #expect(OnDeviceAIProvider.current(gemmaAvailable: true, appleAvailable: false) == .gemma)
+        #expect(OnDeviceAIProvider.current(gemmaAvailable: true, appleAvailable: false).displayName == "Gemma 4 E2B")
     }
 
     @Test
     func unavailableWhenNeitherBackendExists() {
-        #expect(OnDeviceAIProvider.current(gemmaAvailable: false, appleAvailable: false) == .unavailable)
+        #expect(OnDeviceAIProvider.current(gemmaAvailable: false, appleAvailable: false).displayName == "On-device AI unavailable")
     }
 
     @Test

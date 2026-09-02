@@ -36,22 +36,24 @@ struct DecksView: View {
             List {
                 if !decks.isEmpty {
                     Section {
-                        HStack(spacing: 14) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Today").font(.headline)
-                                if totalStudyable == 0 {
-                                    Text("You're all caught up")
-                                        .font(.subheadline).foregroundStyle(.secondary)
-                                } else {
-                                    Text("\(totalStudyable) card\(totalStudyable == 1 ? "" : "s") ready")
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 14) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Today").font(.headline)
+                                    Text(totalStudyable == 0 ? "You're all caught up" : "\(totalStudyable) card\(totalStudyable == 1 ? "" : "s") ready")
                                         .font(.subheadline).foregroundStyle(.secondary)
                                 }
+                                Spacer()
+                                if totalStudyable > 0 {
+                                    Button("Study") { showingStudyAll = true }
+                                        .buttonStyle(.borderedProminent)
+                                        .controlSize(.small)
+                                }
                             }
-                            Spacer()
-                            if totalStudyable > 0 {
-                                Button("Study") { showingStudyAll = true }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
+                            HStack(spacing: 8) {
+                                StudyCountPill(title: "Due", count: totalDue)
+                                StudyCountPill(title: "New", count: totalNewAvailable)
+                                Spacer(minLength: 0)
                             }
                         }
                         .padding(.vertical, 4)
@@ -115,6 +117,23 @@ struct DeckRow: View {
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }
         .padding(.vertical, 5)
+    }
+}
+
+private struct StudyCountPill: View {
+    let title: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text("\(count)").font(.caption.weight(.bold).monospacedDigit())
+            Text(title).font(.caption.weight(.medium))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.secondary.opacity(0.10), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(count) cards")
     }
 }
 

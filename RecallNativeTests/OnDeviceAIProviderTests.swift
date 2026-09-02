@@ -11,6 +11,26 @@ struct OnDeviceAIProviderTests {
     }
 
     @Test
+    func unsupportedAppleLocaleFallsBackToGemma() {
+        let provider = OnDeviceAIProvider.current(
+            gemmaAvailable: true,
+            appleAvailable: true,
+            appleSupportsLocale: false
+        )
+        #expect(provider == .gemma)
+    }
+
+    @Test
+    func unsupportedAppleLocaleIsUnavailableWithoutGemma() {
+        let provider = OnDeviceAIProvider.current(
+            gemmaAvailable: false,
+            appleAvailable: true,
+            appleSupportsLocale: false
+        )
+        #expect(provider == .unavailable)
+    }
+
+    @Test
     func gemmaIsTheFallbackWhenAppleIsUnavailable() {
         #expect(OnDeviceAIProvider.current(gemmaAvailable: true, appleAvailable: false).displayName == "Gemma 4 E2B")
     }

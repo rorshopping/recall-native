@@ -41,6 +41,7 @@
 		AD870ABF43B6790888EB986C /* SpacedRepetitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */; };
 		AD9270E334B68049C5A782F4 /* LiteRTModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5C2A09E6D8FBE7C608759D /* LiteRTModelStore.swift */; };
 		B48F2357A2459B9CDE0C5FF0 /* DecksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706E1F960AB7E50FE62ABD0 /* DecksView.swift */; };
+		BB1A13A30702B914FE3E1E40 /* ConfettiView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4E6587803302BC76F9F22D /* ConfettiView.swift */; };
 		C62074B5D1FC932D6942BED0 /* DocumentImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB488ABEAB77A684A17ED00 /* DocumentImportService.swift */; };
 		CE6298AF073EECE267DD8AD0 /* BackupCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB8D34D666DE6EEF242928CB /* BackupCompatibilityTests.swift */; };
 		D174FE7F00C671F7C73FA6C1 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC45D6F7273015A088D9D0 /* BackupService.swift */; };
@@ -94,6 +95,7 @@
 		38F6DB9722B6393CDD5E1233 /* BiometricLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricLockService.swift; sourceTree = "<group>"; };
 		423DDE5C295D963F5581F717 /* SpacedRepetitionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacedRepetitionServiceTests.swift; sourceTree = "<group>"; };
 		46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncService.swift; sourceTree = "<group>"; };
+		4A4E6587803302BC76F9F22D /* ConfettiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfettiView.swift; sourceTree = "<group>"; };
 		541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIImportView.swift; sourceTree = "<group>"; };
 		54ACF5887739C488957A86C6 /* EntitlementRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementRules.swift; sourceTree = "<group>"; };
 		58980CCCFA098CB4ACA1BD71 /* RecallNative.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RecallNative.entitlements; sourceTree = "<group>"; };
@@ -140,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */,
+				4A4E6587803302BC76F9F22D /* ConfettiView.swift */,
 				303DB4EE3F0A03D203B9E8B4 /* CreateView.swift */,
 				0E7EDF17FEC30D13260D778D /* DeckDetailView.swift */,
 				F706E1F960AB7E50FE62ABD0 /* DecksView.swift */,
@@ -378,6 +381,7 @@
 				378FC009CCEEADD0C6B46D54 /* AdvancedAIService.swift in Sources */,
 				D174FE7F00C671F7C73FA6C1 /* BackupService.swift in Sources */,
 				041C15F5D27CC2BF13C8AF38 /* BiometricLockService.swift in Sources */,
+				BB1A13A30702B914FE3E1E40 /* ConfettiView.swift in Sources */,
 				EE6586B79B4839EE6EE1942C /* CreateView.swift in Sources */,
 				2F5F0EC3311E262F3A2AB5AA /* Deck.swift in Sources */,
 				FEF9E2DDAA3550F81F1CADF8 /* DeckDetailView.swift in Sources */,

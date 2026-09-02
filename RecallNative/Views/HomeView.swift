@@ -38,7 +38,7 @@ struct HomeView: View {
                         HStack(spacing: 16) {
                             VStack(alignment: .leading, spacing: 7) {
                                 Text(studyableCount == 0 ? "All caught up" : "Ready to review").font(.title3.bold())
-                                Text(studyableCount == 0 ? "Nice work. Check back when cards are due." : "\\(studyableCount) cards are ready")
+                                Text(studyableCount == 0 ? "Nice work. Check back when cards are due." : "\(studyableCount) cards are ready")
                                     .font(.subheadline).foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -57,26 +57,26 @@ struct HomeView: View {
                             Circle().trim(from: 0, to: goalProgress)
                                 .stroke(RecallTheme.accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                                 .rotationEffect(.degrees(-90))
-                            Text("\\(todayReviews)").font(.headline.bold())
+                            Text("\(todayReviews)").font(.headline.bold())
                         }.frame(width: 64, height: 64)
                         VStack(alignment: .leading, spacing: 5) {
                             Text(todayReviews >= dailyGoal ? "Daily goal complete 🎉" : "Daily goal").font(.headline)
-                            Text("\\(todayReviews) of \\(dailyGoal) reviews today").font(.subheadline).foregroundStyle(.secondary)
+                            Text("\(todayReviews) of \(dailyGoal) reviews today").font(.subheadline).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 0)
                         VStack(alignment: .trailing, spacing: 4) {
-                            Text("🔥 \\(currentStreak)").font(.headline)
+                            Text("🔥 \(currentStreak)").font(.headline)
                             Text("day streak").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Daily goal: \\(todayReviews) of \\(dailyGoal) reviews. \\(currentStreak) day streak.")
+                    .accessibilityLabel("Daily goal: \(todayReviews) of \(dailyGoal) reviews. \(currentStreak) day streak.")
                 }
 
                 HStack(spacing: 10) {
-                    StatCard(value: "\\(newCount)", label: "New")
-                    StatCard(value: "\\(dueCount)", label: "Due")
-                    StatCard(value: "\\(masteredCount)", label: "Mastered")
+                    StatCard(value: "\(newCount)", label: "New")
+                    StatCard(value: "\(dueCount)", label: "Due")
+                    StatCard(value: "\(masteredCount)", label: "Mastered")
                 }
 
                 if !recentReviews.isEmpty {
@@ -84,7 +84,7 @@ struct HomeView: View {
                         HStack {
                             Text("Recent activity").font(.title3.bold())
                             Spacer()
-                            Text("Last \\(recentReviews.count)").font(.subheadline).foregroundStyle(.secondary)
+                            Text("Last \(recentReviews.count)").font(.subheadline).foregroundStyle(.secondary)
                         }
                         RecallCard {
                             VStack(spacing: 0) {
@@ -101,7 +101,7 @@ struct HomeView: View {
                     HStack {
                         Text("Your library").font(.title3.bold())
                         Spacer()
-                        Text("\\(decks.count) decks").font(.subheadline).foregroundStyle(.secondary)
+                        Text("\(decks.count) decks").font(.subheadline).foregroundStyle(.secondary)
                     }
                     if decks.isEmpty {
                         EmptyLibraryCard(action: onCreate)
@@ -154,7 +154,7 @@ private struct RecentReviewRow: View {
                 .background(.secondary.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(review.card?.question ?? "Card reviewed").font(.subheadline.weight(.medium)).lineLimit(1)
-                Text("\\(ratingTitle) · \\(review.reviewedAt.formatted(.relative(presentation: .named)))")
+                Text("\(ratingTitle) · \(review.reviewedAt.formatted(.relative(presentation: .named)))")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)

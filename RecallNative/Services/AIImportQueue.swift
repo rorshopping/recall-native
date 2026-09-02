@@ -46,7 +46,11 @@ actor AIImportQueue {
     private let ai = LocalAIService()
 
     init() {
-        jobs = Self.loadJobs()
+        let loaded = Self.loadJobs()
+        jobs = loaded.jobs
+        if loaded.recoveredInterruptedJobs {
+            Self.persistJobs(loaded.jobs)
+        }
     }
 
     func enqueue(name: String, source: String) -> UUID? {
@@ -234,8 +238,12 @@ actor AIImportQueue {
     }
 
     private func persist() {
+        Self.persistJobs(jobs)
+    }
+
+    private static func persistJobs(_ jobs: [Job]) {
         guard let data = try? JSONEncoder().encode(jobs) else { return }
-        let url = Self.storageURL
+        let url = storageURL
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
@@ -247,14 +255,15 @@ actor AIImportQueue {
         }
     }
 
-    private static func loadJobs() -> [Job] {
+    private static func loadJobs() -> (jobs: [Job], recoveredInterruptedJobs: Bool) {
         guard let data = try? Data(contentsOf: storageURL),
               var decoded = try? JSONDecoder().decode([Job].self, from: data) else {
-            return []
+            return ([], false)
         }
 
-        // A terminated app can leave a job marked processing. Requeue it so
-        // the next launch never strands an item permanently.
+        // A terminated app can leave a job marked processing. Requeue it and
+        // persist that recovery immediately so repeated launches cannot keep
+        // observing the stale processing state.
         var didRecoverInterruptedJob = false
         for index in decoded.indices {
             if case .processing = decoded[index].state {
@@ -262,12 +271,7 @@ actor AIImportQueue {
                 didRecoverInterruptedJob = true
             }
         }
-        if didRecoverInterruptedJob {
-            // Best-effort recovery persistence happens after initialization via
-            // the queue's actor-isolated methods. The recovered jobs are still
-            // immediately available in memory even if storage is unavailable.
-        }
-        return decoded
+        return (decoded, didRecoverInterruptedJob)
     }
 
     private static var storageURL: URL {

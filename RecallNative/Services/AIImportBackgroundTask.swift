@@ -17,6 +17,19 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         super.init()
     }
 
+    private final class CompletionGate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var didComplete = false
+
+        func finish(_ task: BGContinuedProcessingTask, success: Bool) {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !didComplete else { return }
+            didComplete = true
+            task.setTaskCompleted(success: success)
+        }
+    }
+
     func register() {
         lock.lock()
         defer { lock.unlock() }
@@ -48,7 +61,6 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
 
             // Do not request GPU unless the app has the matching entitlement.
             // The Gemma/LiteRT path can still run using its permitted resources.
-
             do {
                 try BGTaskScheduler.shared.submit(request)
             } catch {
@@ -59,6 +71,7 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
     }
 
     private func handle(_ task: BGContinuedProcessingTask) {
+        let gate = CompletionGate()
         let work = Task {
             let initial = await queue.progressSnapshot()
             let total = max(initial.total, 1)
@@ -89,19 +102,27 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
                 }
             }
 
-            await queue.startIfNeeded()
-            reporter.cancel()
+            do {
+                try await queue.startIfNeeded()
+                reporter.cancel()
 
-            let final = await queue.progressSnapshot()
-            task.progress.totalUnitCount = Int64(max(final.total, 1))
-            task.progress.completedUnitCount = task.progress.totalUnitCount
-            task.updateTitle("Generating flashcards", subtitle: "AI inbox complete")
-            task.setTaskCompleted(success: true)
+                let final = await queue.progressSnapshot()
+                task.progress.totalUnitCount = Int64(max(final.total, 1))
+                task.progress.completedUnitCount = task.progress.totalUnitCount
+                task.updateTitle("Generating flashcards", subtitle: "AI inbox complete")
+                gate.finish(task, success: true)
+            } catch is CancellationError {
+                reporter.cancel()
+                gate.finish(task, success: false)
+            } catch {
+                reporter.cancel()
+                gate.finish(task, success: false)
+            }
         }
 
         task.expirationHandler = {
             work.cancel()
-            task.setTaskCompleted(success: false)
+            gate.finish(task, success: false)
         }
     }
 }

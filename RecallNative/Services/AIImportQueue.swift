@@ -99,11 +99,32 @@ actor AIImportQueue {
         }
     }
 
-    func retry(_ id: UUID) {
-        guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
-        guard case .failed = jobs[index].state else { return }
+    func failedCount() -> Int {
+        jobs.reduce(into: 0) { count, job in
+            if case .failed = job.state { count += 1 }
+        }
+    }
+
+    @discardableResult
+    func retry(_ id: UUID) -> Bool {
+        guard let index = jobs.firstIndex(where: { $0.id == id }) else { return false }
+        guard case .failed = jobs[index].state else { return false }
         jobs[index].state = .queued
         persist()
+        return true
+    }
+
+    @discardableResult
+    func retryAllFailed() -> Int {
+        var count = 0
+        for index in jobs.indices {
+            if case .failed = jobs[index].state {
+                jobs[index].state = .queued
+                count += 1
+            }
+        }
+        if count > 0 { persist() }
+        return count
     }
 
     /// Removes an item that has not started. The active model request is never
@@ -113,6 +134,18 @@ actor AIImportQueue {
         guard case .queued = job.state else { return }
         jobs.removeAll { $0.id == id }
         persist()
+    }
+
+    @discardableResult
+    func cancelAllQueued() -> Int {
+        let originalCount = jobs.count
+        jobs.removeAll {
+            if case .queued = $0.state { return true }
+            return false
+        }
+        let removed = originalCount - jobs.count
+        if removed > 0 { persist() }
+        return removed
     }
 
     func startIfNeeded() async {

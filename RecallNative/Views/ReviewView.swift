@@ -51,7 +51,7 @@ struct ReviewView: View {
     @Environment(\.dismiss) private var dismiss
     let deck: Deck?
     let studyAll: Bool
-    @Query(sort: \Flashcard.dueAt) private var cards: [Flashcard]
+    @Query(sort: \\Flashcard.dueAt) private var cards: [Flashcard]
     @State private var queue: [Flashcard] = []
     @State private var session = ReviewSessionState(total: 0)
     @State private var introducedNewCards: Set<UUID> = []
@@ -60,6 +60,10 @@ struct ReviewView: View {
     @State private var typed = ""
     @State private var typeChecked: Bool?
     @State private var didInitialize = false
+    @State private var confettiBurst = 0
+    @State private var cardScale: CGFloat = 1
+    @State private var cardShake: CGFloat = 0
+    @State private var showingStudyAll = false
     @StateObject private var audio = ReviewAudioController()
 
     init(deck: Deck? = nil, studyAll: Bool = false) {
@@ -83,8 +87,12 @@ struct ReviewView: View {
                 }
             }
         }
+        .overlay { ConfettiView(fire: confettiBurst) }
         .task { initializeIfNeeded() }
         .onDisappear { audio.stop() }
+        .fullScreenCover(isPresented: $showingStudyAll) {
+            ReviewView(deck: deck, studyAll: true)
+        }
     }
 
     private var studyBody: some View {
@@ -117,6 +125,8 @@ struct ReviewView: View {
             }
             .frame(maxWidth: 760, maxHeight: .infinity)
             .contentShape(Rectangle())
+            .scaleEffect(cardScale)
+            .modifier(ReviewShakeEffect(animatableData: cardShake))
             .onTapGesture { withAnimation(.snappy(duration: 0.25)) { revealed = true } }
             .simultaneousGesture(
                 DragGesture(minimumDistance: 45)
@@ -299,6 +309,10 @@ struct ReviewView: View {
         }
     }
 
+    private var scopedCards: [Flashcard] {
+        cards.filter { deck == nil || $0.deck?.id == deck?.id }
+    }
+
     private var emptyView: some View {
         let limitReached = hasNewCardsWaitingForTomorrow
         return VStack(spacing: 14) {
@@ -307,6 +321,13 @@ struct ReviewView: View {
             Text(limitReached ? "Daily limit reached" : "Nothing due right now").font(.title.bold())
             Text(limitReached ? "You’ve reached today’s new-card limit. Come back tomorrow for more new cards." : "All caught up. Your next reviews will appear here when they are due.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
+            if !scopedCards.isEmpty && !studyAll {
+                Button("Study all \(scopedCards.count) cards") {
+                    showingStudyAll = true
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("review.studyAll")
+            }
             Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
         }.padding(32)
     }
@@ -348,6 +369,8 @@ struct ReviewView: View {
         revealed = false
         typed = ""
         typeChecked = nil
+        cardScale = 1
+        cardShake = 0
         initializeIfNeeded()
     }
 
@@ -386,10 +409,37 @@ struct ReviewView: View {
         let current = queue.removeFirst()
         if grade == 0 { queue.append(current) }
         session.recordReview(completedCard: grade != 0, rating: grade + 1)
+
+        if grade == 2 || grade == 3 {
+            confettiBurst += 1
+            cardScale = 1.06
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.62)) {
+                cardScale = 1
+            }
+        } else {
+            cardShake = 0
+            withAnimation(.linear(duration: 0.07).repeatCount(5, autoreverses: true)) {
+                cardShake = 1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+                cardShake = 0
+            }
+        }
+
         revealed = false
         typed = ""
         typeChecked = nil
         if queue.isEmpty { completed = true }
+    }
+}
+
+private struct ReviewShakeEffect: GeometryEffect {
+    var amount: CGFloat = 10
+    var shakes: CGFloat = 4
+    var animatableData: CGFloat
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: amount * sin(animatableData * .pi * shakes), y: 0))
     }
 }
 

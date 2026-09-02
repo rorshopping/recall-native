@@ -44,14 +44,12 @@ private struct RecallBootstrapView: View {
             assertionFailure("Failed to bootstrap Recall data: \(error)")
         }
 
-        // Resume any AI inbox work restored from the previous launch. This
-        // happens independently of the inbox UI, so queued imports do not
-        // require the user to reopen that screen.
+        // Resume work restored from the previous launch in the foreground.
+        // Continued-processing tasks are intentionally not submitted here:
+        // Apple requires those tasks to begin from an explicit user action.
+        // New imports and retries submit their work before inference starts.
         Task {
             await AIImportQueue.shared.startIfNeeded()
-            if #available(iOS 26.0, *) {
-                AIImportBackgroundTask.shared.submitIfNeeded()
-            }
         }
     }
 }

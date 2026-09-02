@@ -32,12 +32,12 @@ struct AppleOnDeviceAIService: Sendable {
         let response = try await session.respond(to: prompt)
         let raw = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { throw ServiceError.emptyResponse }
-        return try JSONOutputNormalizer.normalize(raw)
+        return try AppleJSONOutputNormalizer.normalize(raw)
     }
 }
 #endif
 
-private enum JSONOutputNormalizer {
+private enum AppleJSONOutputNormalizer {
     static func normalize(_ raw: String) throws -> Data {
         let cleaned = raw
             .replacingOccurrences(of: "```json", with: "")

@@ -28,6 +28,10 @@ enum UsageMetricsStore {
         UserDefaults.standard.set(true, forKey: suppressCreationDeltaKey)
     }
 
+    static func cancelSuppressedCreationDelta() {
+        UserDefaults.standard.removeObject(forKey: suppressCreationDeltaKey)
+    }
+
     static func clear() {
         UserDefaults.standard.removeObject(forKey: totalCreatedKey)
         UserDefaults.standard.removeObject(forKey: suppressCreationDeltaKey)

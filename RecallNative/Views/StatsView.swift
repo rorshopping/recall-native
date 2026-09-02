@@ -53,22 +53,22 @@ struct StatsView: View {
                                 HStack(spacing: 10) {
                                     Text("🔥").font(.title2)
                                     VStack(alignment: .leading) {
-                                        Text("\\(currentStreak)").font(.title.bold())
+                                        Text("\(currentStreak)").font(.title.bold())
                                         Text("day streak").font(.caption).foregroundStyle(.secondary)
                                     }
                                 }
-                                Text(streakAtRisk ? "Study today to keep it 🔥" : "\\(newCount) new cards").font(.caption.weight(.semibold)).foregroundStyle(streakAtRisk ? .orange : .secondary)
+                                Text(streakAtRisk ? "Study today to keep it 🔥" : "\(newCount) new cards").font(.caption.weight(.semibold)).foregroundStyle(streakAtRisk ? .orange : .secondary)
                             }
                             Spacer(minLength: 0)
                         }
                     }
-                    Text(todayReviews >= dailyGoal ? "Daily goal complete 🎉" : "\\(Int((Double(todayReviews) / Double(max(1, dailyGoal)) * 100).rounded()))% of your daily goal")
+                    Text(todayReviews >= dailyGoal ? "Daily goal complete 🎉" : "\(Int((Double(todayReviews) / Double(max(1, dailyGoal)) * 100).rounded()))% of your daily goal")
                         .font(.caption.weight(.semibold)).foregroundStyle(todayReviews >= dailyGoal ? .green : .secondary).padding(.horizontal, 4)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        StatCard(title: "Due today", value: "\\(dueCount)", icon: "clock.fill")
-                        StatCard(title: "Total cards", value: "\\(cards.count)", icon: "rectangle.stack.fill")
-                        StatCard(title: "Reviewed", value: "\\(metrics.total)", icon: "checkmark.circle.fill")
-                        StatCard(title: "Mastery", value: "\\(mastery)%", icon: "brain.head.profile.fill")
+                        StatCard(title: "Due today", value: "\(dueCount)", icon: "clock.fill")
+                        StatCard(title: "Total cards", value: "\(cards.count)", icon: "rectangle.stack.fill")
+                        StatCard(title: "Reviewed", value: "\(metrics.total)", icon: "checkmark.circle.fill")
+                        StatCard(title: "Mastery", value: "\(mastery)%", icon: "brain.head.profile.fill")
                     }
                     HStack {
                         Text("REVIEW QUALITY").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
@@ -87,7 +87,18 @@ struct StatsView: View {
                                     Text("How your recent answers are distributed").font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text("\\(metrics.positiveRate)% positive").font(.caption.weight(.semibold)).foregroundStyle(RecallTheme.accent)
+                                Text("\(metrics.positiveRate)% positive").font(.caption.weight(.semibold)).foregroundStyle(RecallTheme.accent)
+                            }
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(metrics.averageRating, format: .number.precision(.fractionLength(1))).font(.title3.bold())
+                                    Text("average rating / 4").font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text("\(metrics.total) responses").font(.subheadline.weight(.semibold))
+                                    Text("last 7 days: \(metrics.count(from: calendar.date(byAdding: .day, value: -6, to: .now) ?? .now, through: .now))").font(.caption).foregroundStyle(.secondary)
+                                }
                             }
                             QualityBar(label: "Again", count: metrics.ratingCounts[1, default: 0], total: metrics.total)
                             QualityBar(label: "Hard", count: metrics.ratingCounts[2, default: 0], total: metrics.total)
@@ -100,13 +111,13 @@ struct StatsView: View {
                     RecallCard {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Library").font(.headline)
-                            InfoRow(title: "Decks", value: "\\(decks.count)", icon: "rectangle.stack")
+                            InfoRow(title: "Decks", value: "\(decks.count)", icon: "rectangle.stack")
                             Divider()
-                            InfoRow(title: "New cards", value: "\\(newCount)", icon: "sparkles")
+                            InfoRow(title: "New cards", value: "\(newCount)", icon: "sparkles")
                             Divider()
-                            InfoRow(title: "Due cards", value: "\\(dueCount)", icon: "clock")
+                            InfoRow(title: "Due cards", value: "\(dueCount)", icon: "clock")
                             Divider()
-                            InfoRow(title: "Total reviews", value: "\\(metrics.total)", icon: "arrow.clockwise")
+                            InfoRow(title: "Total reviews", value: "\(metrics.total)", icon: "arrow.clockwise")
                         }
                     }
                     RecallCard {
@@ -152,7 +163,7 @@ private enum ReviewHistoryFilter: String, CaseIterable, Identifiable {
 }
 
 private struct ReviewHistoryView: View {
-    @Environment(\\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     let reviews: [ReviewLog]
     @State private var searchText = ""
     @State private var filter: ReviewHistoryFilter = .all
@@ -232,7 +243,7 @@ private struct ReviewHistoryRow: View {
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\\(ratingTitle), \\(review.card?.question ?? "card no longer available"), \\(review.reviewedAt.formatted(date: .abbreviated, time: .shortened))")
+        .accessibilityLabel("\(ratingTitle), \(review.card?.question ?? "card no longer available"), \(review.reviewedAt.formatted(date: .abbreviated, time: .shortened))")
     }
     private var ratingIcon: String {
         switch review.rating {
@@ -260,8 +271,8 @@ private struct GoalRing: View {
         ZStack {
             Circle().stroke(.secondary.opacity(0.15), lineWidth: 10)
             Circle().trim(from: 0, to: progress).stroke(RecallTheme.accent, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
-            VStack(spacing: 0) { Text("\\(value)").font(.title2.bold()); Text("of \\(goal)").font(.caption2).foregroundStyle(.secondary) }
-        }.frame(width: 108, height: 108).accessibilityLabel("Reviews today: \\(value) of \\(goal)")
+            VStack(spacing: 0) { Text("\(value)").font(.title2.bold()); Text("of \(goal)").font(.caption2).foregroundStyle(.secondary) }
+        }.frame(width: 108, height: 108).accessibilityLabel("Reviews today: \(value) of \(goal)")
     }
 }
 private struct WeeklyBars: View {
@@ -292,8 +303,8 @@ private struct QualityBar: View {
             GeometryReader { proxy in
                 Capsule().fill(.secondary.opacity(0.12)).overlay(alignment: .leading) { Capsule().fill(RecallTheme.accent).frame(width: proxy.size.width * fraction) }
             }.frame(height: 8)
-            Text("\\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 24, alignment: .trailing)
-        }.frame(height: 18).accessibilityElement(children: .ignore).accessibilityLabel("\\(label): \\(count) reviews")
+            Text("\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 24, alignment: .trailing)
+        }.frame(height: 18).accessibilityElement(children: .ignore).accessibilityLabel("\(label): \(count) reviews")
     }
 }
 private struct InfoRow: View {

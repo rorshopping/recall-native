@@ -4,7 +4,6 @@ import StoreKit
 
 struct LaunchOfferView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
     @Query private var decks: [Deck]
     @Query private var cards: [Flashcard]
     @Query private var reviews: [ReviewLog]
@@ -18,9 +17,11 @@ struct LaunchOfferView: View {
     private var hasEarnedValue: Bool {
         let nonSampleDeck = decks.contains { deck in
             let name = deck.name.lowercased()
-            return name != "spanish basics" && name != "spanish basics — sample"
+            return name != "spanish basics" && name != "spanish basics - sample"
         }
-        return nonSampleDeck || decks.count > 1 || cards.count > 6 || reviews.count >= 3
+        let totalCards = cards.count
+        let hasHistory = reviews.contains { $0.reviewedAt != nil }
+        return nonSampleDeck || decks.count > 1 || totalCards > 6 || reviews.count >= 3 || hasHistory
     }
 
     private var shouldShow: Bool {
@@ -29,9 +30,7 @@ struct LaunchOfferView: View {
 
     var body: some View {
         Group {
-            if shouldShow {
-                content
-            }
+            if shouldShow { content }
         }
         .task {
             await subscriptions.load()
@@ -63,8 +62,7 @@ struct LaunchOfferView: View {
                                 .padding(.vertical, 6)
                                 .background(RecallTheme.accent.opacity(0.12), in: Capsule())
 
-                            Text("Recall Full")
-                                .font(.title.bold())
+                            Text("Recall Full").font(.title.bold())
                             Text(subscriptions.products.first?.displayPrice ?? priceFallback)
                                 .font(.system(size: 40, weight: .bold, design: .rounded))
                                 .foregroundStyle(RecallTheme.accent)

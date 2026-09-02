@@ -82,7 +82,7 @@ struct CreateView: View {
             .background(RecallTheme.canvas).navigationTitle("Create").navigationBarTitleDisplayMode(.inline)
             .task { modelAvailable = await modelStore.modelURL() != nil; await subscriptions.load() }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { handleImport($0) }
-            .sheet(isPresented: $showingSave) { SaveDeckSheet(name: $deckName, selectedDeckID: $selectedDeckID, decks: decks) { saveGeneratedCards() } }
+            .sheet(isPresented: $showingSave) { SaveDeckSheet(name: $deckName, selectedDeckID: $selectedDeckID, decks: decks, generatedCount: generated.count, isPremium: subscriptions.isPremium) { saveGeneratedCards() } }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .alert("Couldn’t generate", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) { Button("OK") { errorMessage = nil } } message: { Text(errorMessage ?? "") }
         }
@@ -90,11 +90,11 @@ struct CreateView: View {
 
     private var canGenerate: Bool { guard modelAvailable, !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }; if mode == .ask { return !askInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; if mode == .explain { return !explainInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }; return true }
     private var canSaveGenerated: Bool {
-        let withinFreeCardLimit = subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck
-        if selectedDeckID != nil {
-            return withinFreeCardLimit
+        if let selectedDeckID, let deck = decks.first(where: { $0.id == selectedDeckID }) {
+            return subscriptions.isPremium || deck.cards.count + generated.count <= EntitlementRules.freeCardLimitPerDeck
         }
-        return EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) && withinFreeCardLimit
+        return EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count)
+            && (subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck)
     }
     private var suggestedDeckName: String { let words = sourceText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").prefix(5).joined(separator: " "); return words.isEmpty ? "New deck" : words.capitalized }
     private func downloadModel() { guard !isDownloadingModel else { return }; isDownloadingModel = true; downloadProgress = .init(fraction: 0, bytesWritten: 0, totalBytes: 0); Task { do { _ = try await modelStore.downloadModel { p in Task { @MainActor in downloadProgress = p } }; await MainActor.run { modelAvailable = true; isDownloadingModel = false } } catch { await MainActor.run { errorMessage = error.localizedDescription; isDownloadingModel = false } } } }
@@ -105,9 +105,15 @@ struct CreateView: View {
     private func saveGeneratedCards() {
         guard !generated.isEmpty else { showingSave = false; return }
         if let selectedDeckID, let deck = decks.first(where: { $0.id == selectedDeckID }) {
+            guard subscriptions.isPremium || deck.cards.count + generated.count <= EntitlementRules.freeCardLimitPerDeck else {
+                showingSave = false
+                showingPaywall = true
+                return
+            }
             generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }
         } else {
             guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else { showingSave = false; showingPaywall = true; return }
+            guard subscriptions.isPremium || generated.count <= EntitlementRules.freeCardLimitPerDeck else { showingSave = false; showingPaywall = true; return }
             let deck = Deck(name: deckName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New deck" : deckName)
             modelContext.insert(deck)
             generated.forEach { modelContext.insert(Flashcard(question: $0.question, answer: $0.answer, hint: $0.hint, tags: $0.tags, deck: deck)) }
@@ -127,6 +133,8 @@ private struct SaveDeckSheet: View {
     @Binding var name: String
     @Binding var selectedDeckID: UUID?
     let decks: [Deck]
+    let generatedCount: Int
+    let isPremium: Bool
     let save: () -> Void
     var body: some View {
         NavigationStack {
@@ -140,13 +148,30 @@ private struct SaveDeckSheet: View {
                             selectedDeckID = value == emptyID ? nil : value
                         })) {
                             Text("New deck").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-                            ForEach(decks) { deck in Text("\(deck.emoji)  \(deck.name)").tag(deck.id) }
+                            ForEach(decks) { deck in
+                                let remaining = max(0, EntitlementRules.freeCardLimitPerDeck - deck.cards.count)
+                                Text("\(deck.emoji)  \(deck.name) · \(isPremium ? deck.cards.count : remaining) \(isPremium ? "cards" : "slots left")")
+                                    .tag(deck.id)
+                                    .disabled(!isPremium && deck.cards.count + generatedCount > EntitlementRules.freeCardLimitPerDeck)
+                            }
                         }
                     }
                 }
                 if selectedDeckID == nil {
                     Section("New deck") {
                         TextField("Deck name", text: $name)
+                        if !isPremium && generatedCount > EntitlementRules.freeCardLimitPerDeck {
+                            Text("The free plan supports up to \(EntitlementRules.freeCardLimitPerDeck) cards per deck.").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                } else if let deck = decks.first(where: { $0.id == selectedDeckID }) && !isPremium {
+                    Section("Capacity") {
+                        let remaining = max(0, EntitlementRules.freeCardLimitPerDeck - deck.cards.count)
+                        Label("\(remaining) card slots remaining", systemImage: remaining >= generatedCount ? "checkmark.circle" : "exclamationmark.triangle")
+                            .foregroundStyle(remaining >= generatedCount ? .secondary : .orange)
+                        if remaining < generatedCount {
+                            Text("This deck does not have enough free capacity for all generated cards.").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 Section {
@@ -156,7 +181,7 @@ private struct SaveDeckSheet: View {
             .navigationTitle("Save cards")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.disabled(!isPremium && selectedDeckID != nil && (decks.first(where: { $0.id == selectedDeckID })?.cards.count ?? 0) + generatedCount > EntitlementRules.freeCardLimitPerDeck) }
             }
         }
         .presentationDetents([.medium])

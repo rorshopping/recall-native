@@ -40,56 +40,72 @@ actor LiteRTModelStore {
         if let activeDownload { return try await activeDownload.value }
         guard availableStorageBytes() >= Self.minimumFreeBytes else { throw LiteRTModelError.insufficientStorage }
 
+        let temporary = documentsURL().appendingPathComponent("\(Self.modelFilename).download")
         let task = Task<URL, Error> {
-            let (bytes, response) = try await URLSession.shared.bytes(from: downloadURL)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                throw LiteRTModelError.downloadFailed
-            }
+            do {
+                let (bytes, response) = try await URLSession.shared.bytes(from: downloadURL)
+                guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                    throw LiteRTModelError.downloadFailed
+                }
 
-            let total = max(Int64(http.expectedContentLength), 0)
-            let destination = documentsURL().appendingPathComponent(Self.modelFilename)
-            let temporary = documentsURL().appendingPathComponent("\(Self.modelFilename).download")
-            try? FileManager.default.removeItem(at: temporary)
-            FileManager.default.createFile(atPath: temporary.path, contents: nil)
-            let handle = try FileHandle(forWritingTo: temporary)
-            defer { try? handle.close() }
+                let total = max(Int64(http.expectedContentLength), 0)
+                let destination = documentsURL().appendingPathComponent(Self.modelFilename)
+                try? FileManager.default.removeItem(at: temporary)
+                guard FileManager.default.createFile(atPath: temporary.path, contents: nil) else {
+                    throw LiteRTModelError.downloadFailed
+                }
+                let handle = try FileHandle(forWritingTo: temporary)
+                defer { try? handle.close() }
 
-            var written: Int64 = 0
-            var buffer = Data()
-            buffer.reserveCapacity(1024 * 1024)
-            for try await byte in bytes {
-                buffer.append(byte)
-                if buffer.count >= 1024 * 1024 {
+                var written: Int64 = 0
+                var buffer = Data()
+                buffer.reserveCapacity(1024 * 1024)
+                for try await byte in bytes {
+                    try Task.checkCancellation()
+                    buffer.append(byte)
+                    if buffer.count >= 1024 * 1024 {
+                        try handle.write(contentsOf: buffer)
+                        written += Int64(buffer.count)
+                        buffer.removeAll(keepingCapacity: true)
+                        progress(ModelDownloadProgress(fraction: total > 0 ? Double(written) / Double(total) : 0, bytesWritten: written, totalBytes: total))
+                    }
+                }
+                try Task.checkCancellation()
+                if !buffer.isEmpty {
                     try handle.write(contentsOf: buffer)
                     written += Int64(buffer.count)
-                    buffer.removeAll(keepingCapacity: true)
-                    progress(ModelDownloadProgress(fraction: total > 0 ? Double(written) / Double(total) : 0, bytesWritten: written, totalBytes: total))
                 }
-            }
-            if !buffer.isEmpty {
-                try handle.write(contentsOf: buffer)
-                written += Int64(buffer.count)
-            }
-            progress(ModelDownloadProgress(fraction: total > 0 ? 1 : 0, bytesWritten: written, totalBytes: total))
-            try handle.close()
+                progress(ModelDownloadProgress(fraction: total > 0 ? 1 : 0, bytesWritten: written, totalBytes: total))
+                try handle.close()
 
-            try? FileManager.default.removeItem(at: destination)
-            try FileManager.default.moveItem(at: temporary, to: destination)
-            guard RecallLiteRTEngine.isLiteRTLM(destination) else {
                 try? FileManager.default.removeItem(at: destination)
-                throw LiteRTModelError.invalidModel
+                try FileManager.default.moveItem(at: temporary, to: destination)
+                guard RecallLiteRTEngine.isLiteRTLM(destination) else {
+                    try? FileManager.default.removeItem(at: destination)
+                    throw LiteRTModelError.invalidModel
+                }
+                let digest = try sha256(of: destination)
+                guard digest == Self.expectedSHA256 else {
+                    try? FileManager.default.removeItem(at: destination)
+                    throw LiteRTModelError.checksumMismatch
+                }
+                return destination
+            } catch is CancellationError {
+                try? FileManager.default.removeItem(at: temporary)
+                throw LiteRTModelError.cancelled
+            } catch {
+                try? FileManager.default.removeItem(at: temporary)
+                throw error
             }
-            let digest = try sha256(of: destination)
-            guard digest == Self.expectedSHA256 else {
-                try? FileManager.default.removeItem(at: destination)
-                throw LiteRTModelError.checksumMismatch
-            }
-            return destination
         }
 
         activeDownload = task
         defer { activeDownload = nil }
         return try await task.value
+    }
+
+    func cancelDownload() {
+        activeDownload?.cancel()
     }
 
     func deleteDownloadedModel() {
@@ -112,13 +128,14 @@ actor LiteRTModelStore {
 }
 
 enum LiteRTModelError: LocalizedError {
-    case downloadFailed, invalidModel, checksumMismatch, insufficientStorage
+    case downloadFailed, invalidModel, checksumMismatch, insufficientStorage, cancelled
     var errorDescription: String? {
         switch self {
         case .downloadFailed: return "Gemma 4 could not be downloaded. Check your connection and try again."
         case .invalidModel: return "The downloaded Gemma 4 model is invalid or incomplete."
         case .checksumMismatch: return "The Gemma 4 download failed integrity verification. Please try again."
         case .insufficientStorage: return "There is not enough free storage to download Gemma 4. Free at least 3 GB and try again."
+        case .cancelled: return "The Gemma 4 download was cancelled."
         }
     }
 }

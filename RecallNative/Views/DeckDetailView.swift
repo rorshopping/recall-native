@@ -11,13 +11,48 @@ struct DeckDetailView: View {
     @State private var showingPaywall = false
     @State private var showingDeckEditor = false
     @State private var showingDeleteDeck = false
+    @State private var cardSearch = ""
+    @State private var cardSort: CardSort = .newest
     @StateObject private var subscriptions = SubscriptionService()
+
+    private enum CardSort: String, CaseIterable, Identifiable {
+        case newest, oldest, due, mastery
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .newest: "Newest"
+            case .oldest: "Oldest"
+            case .due: "Due first"
+            case .mastery: "Mastery"
+            }
+        }
+    }
 
     private var canAddCard: Bool {
         EntitlementRules.canCreateCard(isPremium: subscriptions.isPremium, cardCount: deck.cards.count)
     }
 
-    private var sortedCards: [Flashcard] { deck.cards.sorted { $0.createdAt > $1.createdAt } }
+    private var visibleCards: [Flashcard] {
+        let query = cardSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filtered = query.isEmpty ? deck.cards : deck.cards.filter {
+            $0.question.localizedCaseInsensitiveContains(query) ||
+            $0.answer.localizedCaseInsensitiveContains(query) ||
+            $0.tags.localizedCaseInsensitiveContains(query)
+        }
+        switch cardSort {
+        case .newest:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .oldest:
+            return filtered.sorted { $0.createdAt < $1.createdAt }
+        case .due:
+            return filtered.sorted { $0.dueAt < $1.dueAt }
+        case .mastery:
+            return filtered.sorted {
+                if $0.repetitions != $1.repetitions { return $0.repetitions > $1.repetitions }
+                return $0.ease > $1.ease
+            }
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -45,11 +80,28 @@ struct DeckDetailView: View {
                 HStack {
                     Text("Cards").font(.title3.bold())
                     Spacer()
+                    Menu {
+                        Picker("Sort cards", selection: $cardSort) {
+                            ForEach(CardSort.allCases) { sort in
+                                Text(sort.title).tag(sort)
+                            }
+                        }
+                    } label: {
+                        Label(cardSort.title, systemImage: "arrow.up.arrow.down")
+                            .font(.subheadline.weight(.medium))
+                    }
                     Button {
                         if canAddCard { showingEditor = true } else { showingPaywall = true }
                     } label: {
                         Label(canAddCard ? "Add" : "Unlock", systemImage: canAddCard ? "plus" : "lock.fill")
                     }
+                }
+
+                if !deck.cards.isEmpty {
+                    TextField("Search questions, answers, or tags", text: $cardSearch)
+                        .textFieldStyle(.roundedBorder)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                 }
 
                 if !subscriptions.isPremium && deck.cards.count >= EntitlementRules.freeCardLimitPerDeck {
@@ -64,12 +116,16 @@ struct DeckDetailView: View {
                     }
                 }
 
-                if sortedCards.isEmpty {
+                if deck.cards.isEmpty {
                     RecallCard {
                         ContentUnavailableView("No cards yet", systemImage: "rectangle.stack.badge.plus", description: Text("Add a card manually or create cards from notes."))
                     }
+                } else if visibleCards.isEmpty {
+                    RecallCard {
+                        ContentUnavailableView("No matching cards", systemImage: "magnifyingglass", description: Text("Try a different question, answer, or tag."))
+                    }
                 } else {
-                    ForEach(sortedCards) { card in
+                    ForEach(visibleCards) { card in
                         Button { editingCard = card } label: {
                             RecallCard {
                                 VStack(alignment: .leading, spacing: 8) {

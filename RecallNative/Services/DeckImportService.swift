@@ -43,17 +43,33 @@ enum DeckImportService {
     }
 
     private static func validate(name: String?, cards: [ImportedCard]) throws -> (String, [ImportedCard]) {
-        let cleaned = cards.filter { !$0.front.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.back.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        // Match recall-app's shared deckJson contract: trim front/back, drop
+        // invalid cards, preserve optional hint/tags, and use the same default
+        // deck name when no usable name is supplied. The JS contract does not
+        // impose an artificial maximum on the deck name.
+        let cleaned = cards.compactMap { card -> ImportedCard? in
+            let front = card.front.trimmingCharacters(in: .whitespacesAndNewlines)
+            let back = card.back.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !front.isEmpty, !back.isEmpty else { return nil }
+            return ImportedCard(
+                front: front,
+                back: back,
+                hint: card.hint?.trimmingCharacters(in: .whitespacesAndNewlines),
+                tags: card.tags?.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
         guard !cleaned.isEmpty else { throw ImportError.noCards }
-        let deckName = name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? name!.trimmingCharacters(in: .whitespacesAndNewlines) : "Imported deck"
-        guard deckName.count <= 120 else { throw ImportError.invalidShape }
-        return (deckName, cleaned)
+        let deckName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (deckName?.isEmpty == false ? deckName! : "Imported deck", cleaned)
     }
 
     enum ImportError: LocalizedError {
         case invalidShape, noCards
         var errorDescription: String? {
-            switch self { case .invalidShape: return "Expected { deck, cards } or an array of cards."; case .noCards: return "No valid cards found." }
+            switch self {
+            case .invalidShape: return "Unexpected shape: expected an array of cards, or { deck, cards }"
+            case .noCards: return "No valid cards found"
+            }
         }
     }
 }

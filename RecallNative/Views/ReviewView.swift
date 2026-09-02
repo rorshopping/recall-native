@@ -51,7 +51,7 @@ struct ReviewView: View {
     @Environment(\.dismiss) private var dismiss
     let deck: Deck?
     let studyAll: Bool
-    @Query(sort: \\Flashcard.dueAt) private var cards: [Flashcard]
+    @Query(sort: \Flashcard.dueAt) private var cards: [Flashcard]
     @State private var queue: [Flashcard] = []
     @State private var session = ReviewSessionState(total: 0)
     @State private var introducedNewCards: Set<UUID> = []
@@ -420,9 +420,6 @@ struct ReviewView: View {
             cardShake = 0
             withAnimation(.linear(duration: 0.07).repeatCount(5, autoreverses: true)) {
                 cardShake = 1
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
-                cardShake = 0
             }
         }
 

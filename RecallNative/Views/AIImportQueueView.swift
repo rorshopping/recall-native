@@ -99,10 +99,10 @@ struct AIImportQueueView: View {
                                 Task {
                                     let count = await queue.retryAllFailed()
                                     if count > 0 {
-                                        try? await queue.startIfNeeded()
                                         if #available(iOS 26.0, *) {
                                             AIImportBackgroundTask.shared.submitIfNeeded()
                                         }
+                                        try? await queue.startIfNeeded()
                                     }
                                     await refresh()
                                 }
@@ -218,10 +218,10 @@ struct AIImportQueueView: View {
                 Button {
                     Task {
                         await queue.retry(job.id)
-                        try? await queue.startIfNeeded()
                         if #available(iOS 26.0, *) {
                             AIImportBackgroundTask.shared.submitIfNeeded()
                         }
+                        try? await queue.startIfNeeded()
                         await refresh()
                     }
                 } label: {
@@ -284,10 +284,13 @@ struct AIImportQueueView: View {
                 }
                 Task {
                     _ = await queue.enqueue(contentsOf: inputs)
-                    try? await queue.startIfNeeded()
+                    // Register the continued-processing task before starting
+                    // inference so iOS can take over if the user backgrounds
+                    // the app while the first document is still processing.
                     if #available(iOS 26.0, *) {
                         AIImportBackgroundTask.shared.submitIfNeeded()
                     }
+                    try? await queue.startIfNeeded()
                     await refresh()
                 }
             }

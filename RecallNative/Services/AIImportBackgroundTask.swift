@@ -42,29 +42,37 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         "\(Self.identifierContext).\(UUID().uuidString)"
     }
 
-    func register() {
+    @discardableResult
+    func register() -> Bool {
         lock.lock()
-        defer { lock.unlock() }
-        guard !registered else { return }
+        if registered {
+            lock.unlock()
+            return true
+        }
+        lock.unlock()
 
-        // Continued-processing identifiers use the wildcard family declared in
-        // the app's Info.plist. The launch handler is registered for that family.
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifierPrefix, using: nil) { task in
+        let didRegister = BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifierPrefix, using: nil) { task in
             guard let task = task as? BGContinuedProcessingTask else {
                 task.setTaskCompleted(success: false)
                 return
             }
             Self.shared.handle(task)
         }
-        registered = true
+
+        lock.lock()
+        if didRegister {
+            registered = true
+        }
+        lock.unlock()
+        return didRegister
     }
 
     /// Called directly from a user action after files have been added or a
-    /// failed item has been retried. Submission is intentionally synchronous so
-    /// the request reaches iOS before foreground work starts or the app can be
-    /// backgrounded.
+    /// failed item has been retried. Submission is attempted before foreground
+    /// queue processing starts so iOS can continue the same workload if the app
+    /// is backgrounded.
     func submitIfNeeded() {
-        register()
+        guard register() else { return }
 
         lock.lock()
         guard !submitted else {
@@ -81,14 +89,14 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         )
         request.strategy = .queue
 
-        // Do not request GPU unless the app has the matching entitlement.
-        // The Gemma/LiteRT path can still run using its permitted resources.
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            lock.lock()
-            submitted = false
-            lock.unlock()
+        // Use Apple's current completion-handler API rather than the deprecated
+        // throwing submit method. This reports scheduler failures that can
+        // otherwise be lost, while the queue itself remains the fallback path.
+        BGTaskScheduler.shared.submitTaskRequest(request) { [weak self] error in
+            guard let self else { return }
+            self.lock.lock()
+            self.submitted = error == nil
+            self.lock.unlock()
         }
     }
 

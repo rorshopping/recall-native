@@ -26,6 +26,20 @@ struct AIImportQueueView: View {
         }
     }
 
+    private var failedJobs: [AIImportQueue.Job] {
+        jobs.filter {
+            if case .failed = $0.state { return true }
+            return false
+        }
+    }
+
+    private var queuedJobs: [AIImportQueue.Job] {
+        jobs.filter {
+            if case .queued = $0.state { return true }
+            return false
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -44,9 +58,27 @@ struct AIImportQueueView: View {
                 }
 
                 if !activeJobs.isEmpty {
-                    Section("Processing") {
+                    Section {
+                        HStack {
+                            Label("Processing", systemImage: "sparkles")
+                            Spacer()
+                            Text("\(activeJobs.count)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+
                         ForEach(activeJobs) { job in
                             jobRow(job)
+                        }
+
+                        if queuedJobs.count > 1 {
+                            Button("Remove remaining queued", systemImage: "xmark.circle") {
+                                Task {
+                                    await queue.cancelAllQueued()
+                                    await refresh()
+                                }
+                            }
+                            .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -62,7 +94,24 @@ struct AIImportQueueView: View {
                         ForEach(finished) { job in
                             jobRow(job)
                         }
-                        Button("Clear completed", systemImage: "checkmark.circle") {
+
+                        if !failedJobs.isEmpty {
+                            Button("Retry all failed", systemImage: "arrow.clockwise") {
+                                Task {
+                                    let count = await queue.retryAllFailed()
+                                    if count > 0 {
+                                        await queue.startIfNeeded()
+                                        if #available(iOS 26.0, *) {
+                                            AIImportBackgroundTask.shared.submitIfNeeded()
+                                        }
+                                    }
+                                    await refresh()
+                                }
+                            }
+                            .foregroundStyle(RecallTheme.accent)
+                        }
+
+                        Button("Clear finished", systemImage: "checkmark.circle") {
                             Task {
                                 await queue.clearFinished()
                                 await refresh()
@@ -171,6 +220,9 @@ struct AIImportQueueView: View {
                     Task {
                         await queue.retry(job.id)
                         await queue.startIfNeeded()
+                        if #available(iOS 26.0, *) {
+                            AIImportBackgroundTask.shared.submitIfNeeded()
+                        }
                         await refresh()
                     }
                 } label: {

@@ -13,9 +13,12 @@ struct ReviewSessionState {
         self.completed = 0
     }
 
+    /// Number of cards completed in the original session queue.
+    /// Repeating an Again card does not advance this value, so the progress indicator
+    /// reflects actual completion rather than the position of the currently visible card.
     var progress: Int {
         guard total > 0 else { return 0 }
-        return min(completed + 1, total)
+        return min(completed, total)
     }
 
     var progressFraction: Double {

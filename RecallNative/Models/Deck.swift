@@ -29,8 +29,14 @@ final class Deck {
 
     var newRemainingToday: Int {
         let today = Calendar.current.startOfDay(for: .now)
-        let storedDay = newDay.flatMap { ISO8601DateFormatter().date(from: $0) }
+        let storedDay = newDay.flatMap { Self.dayFormatter.date(from: $0) }
         let used = storedDay.map { Calendar.current.isDate($0, inSameDayAs: today) } == true ? newStudiedToday : 0
         return min(max(0, newLimit - used), newCount)
     }
+
+    private static let dayFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+        return formatter
+    }()
 }

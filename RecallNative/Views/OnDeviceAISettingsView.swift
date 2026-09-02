@@ -36,6 +36,11 @@ struct OnDeviceAISettingsView: View {
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("Downloading Gemma 4, \(progressText)")
+
+                        Button("Cancel download", systemImage: "xmark.circle", role: .destructive) {
+                            Task { await LiteRTModelStore.shared.cancelDownload() }
+                        }
+                        .accessibilityHint("Stops the download and removes the partial model file.")
                     } else if !isInstalled {
                         Button("Download Gemma 4", systemImage: "arrow.down.circle.fill") {
                             startDownload()

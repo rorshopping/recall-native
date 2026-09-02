@@ -36,14 +36,18 @@ final class Deck {
     }
 
     /// Records that one new card was introduced today and rolls the counter
-    /// over automatically when the calendar day changes.
+    /// over automatically when the calendar day changes. The accounting
+    /// method itself also enforces the configured daily limit so callers
+    /// cannot accidentally over-count introductions.
     func recordNewCardStudy(on date: Date = .now, calendar: Calendar = .current) {
+        guard newLimit > 0 else { return }
         let today = calendar.startOfDay(for: date)
         let storedDay = newDay.flatMap { Self.dayFormatter.date(from: $0) }
         if storedDay.map({ calendar.isDate($0, inSameDayAs: today) }) != true {
             newDay = Self.dayFormatter.string(from: today)
             newStudiedToday = 0
         }
+        guard newStudiedToday < newLimit else { return }
         newStudiedToday += 1
     }
 

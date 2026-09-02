@@ -28,6 +28,7 @@ enum SeedDataService {
         try context.fetch(FetchDescriptor<Flashcard>()).forEach(context.delete)
         try context.fetch(FetchDescriptor<Deck>()).forEach(context.delete)
         ReviewHistoryStore.clear()
+        UsageMetricsStore.clear()
         try insertSampleDeck(into:context)
     }
     private static func matchesSampleCards(_ cards:[Flashcard]) -> Bool {

@@ -149,7 +149,42 @@ struct ReviewView: View {
             .joined(separator: " ")
     }
     private func checkTyped() { guard let card = queue.first else { return }; typeChecked = normalizedAnswer(typed) == normalizedAnswer(card.answer) }
-    private var completionView: some View { VStack(spacing: 18) { Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent); Text("Session complete").font(.largeTitle.bold()); Text("\(session.reviewed) review\(session.reviewed == 1 ? "" : "s") · \(session.completed) card\(session.completed == 1 ? "" : "s") completed").foregroundStyle(.secondary); Button("Study again", action: restart).buttonStyle(.borderedProminent); Button("Done") { dismiss() }.buttonStyle(.bordered) }.padding(32) }
+    private var completionView: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent)
+            Text("Session complete").font(.largeTitle.bold())
+            Text("\(session.reviewed) review\(session.reviewed == 1 ? "" : "s") · \(session.completed) card\(session.completed == 1 ? "" : "s") completed").foregroundStyle(.secondary)
+            ratingSummary
+            Button("Study again", action: restart).buttonStyle(.borderedProminent)
+            Button("Done") { dismiss() }.buttonStyle(.bordered)
+        }
+        .padding(32)
+    }
+
+    private var ratingSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Session results").font(.headline)
+            HStack(spacing: 8) {
+                sessionRatingPill(title: "Again", count: session.ratingCounts[1, default: 0])
+                sessionRatingPill(title: "Hard", count: session.ratingCounts[2, default: 0])
+                sessionRatingPill(title: "Good", count: session.ratingCounts[3, default: 0])
+                sessionRatingPill(title: "Easy", count: session.ratingCounts[4, default: 0])
+            }
+        }
+        .frame(maxWidth: 520)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Session results")
+    }
+
+    private func sessionRatingPill(title: String, count: Int) -> some View {
+        VStack(spacing: 2) {
+            Text("\(count)").font(.headline.monospacedDigit())
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityLabel("\(title): \(count)")
+    }
 
     private var hasNewCardsWaitingForTomorrow: Bool {
         guard !studyAll else { return false }
@@ -224,7 +259,7 @@ struct ReviewView: View {
         modelContext.insert(ReviewLog(rating: grade + 1, card: card)); try? modelContext.save()
         let current = queue.removeFirst()
         if grade == 0 { queue.append(current) }
-        session.recordReview(completedCard: grade != 0)
+        session.recordReview(completedCard: grade != 0, rating: grade + 1)
         revealed = false; typed = ""; typeChecked = nil
         if queue.isEmpty { completed = true }
     }

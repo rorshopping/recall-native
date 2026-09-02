@@ -82,9 +82,6 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         )
         request.strategy = .queue
 
-        // Use Apple's current completion-handler API rather than the deprecated
-        // throwing submit method. This reports scheduler failures that can
-        // otherwise be lost, while the queue itself remains the fallback path.
         BGTaskScheduler.shared.submitTaskRequest(request) { [weak self] error in
             guard let self else { return }
             if error != nil {
@@ -111,17 +108,22 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
             let initial = await queue.progressSnapshot()
             let total = max(initial.total, 1)
             task.progress.totalUnitCount = Int64(total)
-            task.progress.completedUnitCount = Int64(initial.completed)
+            task.progress.completedUnitCount = Int64(initial.completed + initial.failed)
 
             let reporter = Task {
                 while !Task.isCancelled {
                     let progress = await queue.progressSnapshot()
                     task.progress.totalUnitCount = Int64(max(progress.total, total))
-                    task.progress.completedUnitCount = Int64(min(progress.completed, Int(task.progress.totalUnitCount)))
+                    task.progress.completedUnitCount = Int64(min(
+                        progress.completed + progress.failed,
+                        Int(task.progress.totalUnitCount)
+                    ))
 
                     let subtitle: String
                     if let currentName = progress.currentName {
-                        subtitle = "\(progress.completed + 1) of \(progress.total): \(currentName)"
+                        subtitle = "\(progress.completed + progress.failed + 1) of \(progress.total): \(currentName)"
+                    } else if progress.failed > 0 {
+                        subtitle = "\(progress.failed) failed, finishing your AI inbox"
                     } else if progress.total > 0 {
                         subtitle = "Finishing your AI inbox"
                     } else {
@@ -129,7 +131,7 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
                     }
                     task.updateTitle("Generating flashcards", subtitle: subtitle)
 
-                    if progress.total > 0 && progress.completed >= progress.total {
+                    if progress.total > 0 && progress.completed + progress.failed >= progress.total {
                         break
                     }
 
@@ -142,9 +144,15 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
                 reporter.cancel()
 
                 let final = await queue.progressSnapshot()
+                let finished = final.completed + final.failed
                 task.progress.totalUnitCount = Int64(max(final.total, 1))
-                task.progress.completedUnitCount = task.progress.totalUnitCount
-                task.updateTitle("Generating flashcards", subtitle: "AI inbox complete")
+                task.progress.completedUnitCount = Int64(min(finished, max(final.total, 1)))
+                task.updateTitle(
+                    "Generating flashcards",
+                    subtitle: final.failed > 0
+                        ? "AI inbox finished with \(final.failed) failed"
+                        : "AI inbox complete"
+                )
                 finish(task, gate: gate, success: true)
             } catch is CancellationError {
                 reporter.cancel()
@@ -157,6 +165,9 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
 
         task.expirationHandler = {
             work.cancel()
+            Task {
+                await self.queue.cancelProcessing()
+            }
             self.finish(task, gate: gate, success: false)
         }
     }

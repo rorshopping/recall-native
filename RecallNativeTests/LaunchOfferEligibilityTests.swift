@@ -23,6 +23,22 @@ struct LaunchOfferEligibilityTests {
     }
 
     @Test @MainActor
+    func multipleDecksEarnValueEvenWithSampleSizedContent() throws {
+        let sample = Deck(name: SeedDataService.sampleDeckName)
+        let second = Deck(name: "Second Deck")
+
+        #expect(LaunchOfferEligibility.hasEarnedValue(decks: [sample, second], cards: [], reviews: []))
+    }
+
+    @Test @MainActor
+    func reviewTodayEarnsValue() throws {
+        let deck = Deck(name: SeedDataService.sampleDeckName)
+        let review = ReviewLog(reviewedAt: .now, rating: 3)
+
+        #expect(LaunchOfferEligibility.hasEarnedValue(decks: [deck], cards: [], reviews: [review]))
+    }
+
+    @Test @MainActor
     func reviewHistoryEarnsValueEvenWhenCurrentLogsAreEmpty() throws {
         let previous = ReviewHistoryStore.exportValues()
         defer {

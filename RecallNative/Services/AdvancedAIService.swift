@@ -6,7 +6,7 @@ struct AdvancedAIService: Sendable {
 
     func generateJSON(instruction: String, systemPrompt: String, source: String) async throws -> Data {
         let material = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard material.count >= 20 else { throw AIServiceError.insufficientContent }
+        guard !material.isEmpty else { throw AIServiceError.emptyInput }
         guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
 
         let topic = instruction + "\n\n" + material

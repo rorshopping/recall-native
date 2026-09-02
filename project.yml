@@ -32,7 +32,7 @@ targets:
       INFOPLIST_KEY_CFBundleDisplayName: Recall Native
       INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
       INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers:
-        - com.recalllabs.recallnative.ai-import
+        - com.recalllabs.recallnative.ai-import.*
       # Keep the native rewrite aligned with the original app's default
       # orientation behavior instead of silently locking phones to portrait.
       INFOPLIST_KEY_UISupportedInterfaceOrientations:

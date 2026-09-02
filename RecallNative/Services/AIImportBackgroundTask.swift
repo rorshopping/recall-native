@@ -12,6 +12,7 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
     private let queue = AIImportQueue.shared
     private let lock = NSLock()
     private var registered = false
+    private var submitted = false
 
     private override init() {
         super.init()
@@ -21,7 +22,7 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         private let lock = NSLock()
         private var didComplete = false
 
-        func finish(_ task: BGContinuedProcessingTask, success: Bool) {
+        func finish(_ task: BGContinuedProcessingTask, success: Bool, onFirstCompletion: () -> Void) {
             lock.lock()
             guard !didComplete else {
                 lock.unlock()
@@ -29,6 +30,7 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
             }
             didComplete = true
             lock.unlock()
+            onFirstCompletion()
             task.setTaskCompleted(success: success)
         }
     }
@@ -48,28 +50,48 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         registered = true
     }
 
-    /// Called after the user adds files. iOS may begin immediately and can
-    /// continue the workload after the app is backgrounded.
+    /// Called directly from a user action after files have been added or a
+    /// failed item has been retried. Submission is intentionally synchronous so
+    /// the request reaches iOS before foreground work starts or the app can be
+    /// backgrounded.
     func submitIfNeeded() {
         register()
-        Task {
-            guard await queue.activeCount() > 0 else { return }
 
-            let request = BGContinuedProcessingTaskRequest(
-                identifier: Self.identifier,
-                title: "Generating flashcards",
-                subtitle: "Processing your AI inbox privately on device"
-            )
-            request.strategy = .queue
+        lock.lock()
+        guard !submitted else {
+            lock.unlock()
+            return
+        }
+        submitted = true
+        lock.unlock()
 
-            // Do not request GPU unless the app has the matching entitlement.
-            // The Gemma/LiteRT path can still run using its permitted resources.
-            do {
-                try BGTaskScheduler.shared.submit(request)
-            } catch {
-                // The foreground queue remains active. Submission can fail
-                // when the system is temporarily resource constrained.
-            }
+        let request = BGContinuedProcessingTaskRequest(
+            identifier: Self.identifier,
+            title: "Generating flashcards",
+            subtitle: "Processing your AI inbox privately on device"
+        )
+        request.strategy = .queue
+
+        // Do not request GPU unless the app has the matching entitlement.
+        // The Gemma/LiteRT path can still run using its permitted resources.
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            lock.lock()
+            submitted = false
+            lock.unlock()
+        }
+    }
+
+    private func markSubmissionFinished() {
+        lock.lock()
+        submitted = false
+        lock.unlock()
+    }
+
+    private func finish(_ task: BGContinuedProcessingTask, gate: CompletionGate, success: Bool) {
+        gate.finish(task, success: success) {
+            Self.shared.markSubmissionFinished()
         }
     }
 
@@ -113,19 +135,19 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
                 task.progress.totalUnitCount = Int64(max(final.total, 1))
                 task.progress.completedUnitCount = task.progress.totalUnitCount
                 task.updateTitle("Generating flashcards", subtitle: "AI inbox complete")
-                gate.finish(task, success: true)
+                finish(task, gate: gate, success: true)
             } catch is CancellationError {
                 reporter.cancel()
-                gate.finish(task, success: false)
+                finish(task, gate: gate, success: false)
             } catch {
                 reporter.cancel()
-                gate.finish(task, success: false)
+                finish(task, gate: gate, success: false)
             }
         }
 
         task.expirationHandler = {
             work.cancel()
-            gate.finish(task, success: false)
+            self.finish(task, gate: gate, success: false)
         }
     }
 }

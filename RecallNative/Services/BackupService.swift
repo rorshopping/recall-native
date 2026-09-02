@@ -10,6 +10,42 @@ struct RecallBackup: Codable {
         let newLimit: Int
         let newDay: String
         let newStudiedToday: Int
+
+        private enum CodingKeys: String, CodingKey {
+            case id, name, emoji, createdAt, newLimit, newDay, newStudiedToday
+        }
+
+        init(id: UUID, name: String, emoji: String, createdAt: Date, newLimit: Int = 20, newDay: String, newStudiedToday: Int) {
+            self.id = id
+            self.name = name
+            self.emoji = emoji
+            self.createdAt = createdAt
+            self.newLimit = newLimit
+            self.newDay = newDay
+            self.newStudiedToday = newStudiedToday
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            name = try container.decode(String.self, forKey: .name)
+            emoji = try container.decode(String.self, forKey: .emoji)
+            createdAt = try container.decode(Date.self, forKey: .createdAt)
+            newLimit = try container.decodeIfPresent(Int.self, forKey: .newLimit) ?? 20
+            newDay = try container.decode(String.self, forKey: .newDay)
+            newStudiedToday = try container.decode(Int.self, forKey: .newStudiedToday)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(name, forKey: .name)
+            try container.encode(emoji, forKey: .emoji)
+            try container.encode(createdAt, forKey: .createdAt)
+            try container.encode(newLimit, forKey: .newLimit)
+            try container.encode(newDay, forKey: .newDay)
+            try container.encode(newStudiedToday, forKey: .newStudiedToday)
+        }
     }
     struct CardRecord: Codable {
         let id: UUID; let question: String; let answer: String; let hint: String; let tags: String; let type: String; let typeInAnswer: Bool

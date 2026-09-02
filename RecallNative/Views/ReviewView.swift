@@ -154,11 +154,27 @@ struct ReviewView: View {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent)
             Text("Session complete").font(.largeTitle.bold())
             Text("\(session.reviewed) review\(session.reviewed == 1 ? "" : "s") · \(session.completed) card\(session.completed == 1 ? "" : "s") completed").foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                sessionMetricPill(value: "\(session.positiveRate)%", label: "positive")
+                sessionMetricPill(value: "\(session.completionRate)%", label: "completed")
+            }
+            .frame(maxWidth: 520)
             ratingSummary
             Button("Study again", action: restart).buttonStyle(.borderedProminent)
             Button("Done") { dismiss() }.buttonStyle(.bordered)
         }
         .padding(32)
+    }
+
+    private func sessionMetricPill(value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(.title3.bold().monospacedDigit())
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(value) \(label)")
     }
 
     private var ratingSummary: some View {

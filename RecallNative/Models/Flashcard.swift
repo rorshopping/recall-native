@@ -57,7 +57,7 @@ final class Flashcard {
         self.deck = deck
     }
 
-    var isNew: Bool { state == "new" || repetitions == 0 }
+    var isNew: Bool { state == "new" }
     var isDue: Bool { dueAt <= .now }
     var statusTitle: String {
         if isNew { return "New" }

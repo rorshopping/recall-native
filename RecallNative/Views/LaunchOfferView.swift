@@ -15,13 +15,15 @@ struct LaunchOfferView: View {
     private let priceFallback = "39,99 €"
 
     private var hasEarnedValue: Bool {
-        let nonSampleDeck = decks.contains { deck in
-            let name = deck.name.lowercased()
-            return name != "spanish basics" && name != "spanish basics - sample"
+        let hasNonSampleDeck = decks.contains { deck in
+            deck.name != "Spanish Basics" && deck.name != "Spanish Basics — Sample"
         }
-        let totalCards = cards.count
-        let hasHistory = !reviews.isEmpty
-        return nonSampleDeck || decks.count > 1 || totalCards > 6 || reviews.count >= 3 || hasHistory
+        let hasMultipleDecks = decks.count > 1
+        let hasEnoughCards = cards.count > 6
+        let hasEnoughReviews = reviews.count >= 3
+        let hasStudyHistory = !reviews.isEmpty || !ReviewHistoryStore.load().isEmpty
+        let hasCreationHistory = UsageMetricsStore.totalCreated > 6
+        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory || hasCreationHistory
     }
 
     private var shouldShow: Bool {
@@ -37,14 +39,14 @@ struct LaunchOfferView: View {
             didLoad = true
         }
         .onChange(of: subscriptions.isPremium) { _, premium in
-            if premium { dismissed = true }
+            if premium {
+                dismissed = true
+            }
         }
-        // A pageSheet can be dismissed by a swipe or system dismissal without
-        // executing either explicit "Not now" button. Treat that exactly like
-        // the original app's onRequestClose so the one-time welcome never
-        // unexpectedly reappears on the next launch.
         .onDisappear {
-            if !subscriptions.isPremium { dismissed = true }
+            if !subscriptions.isPremium {
+                dismissed = true
+            }
         }
     }
 
@@ -55,8 +57,11 @@ struct LaunchOfferView: View {
                 VStack(spacing: 16) {
                     HStack {
                         Spacer()
-                        Button("Not now") { dismissed = true; dismiss() }
-                            .foregroundStyle(.secondary)
+                        Button("Not now") {
+                            dismissed = true
+                            dismiss()
+                        }
+                        .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: 520)
 
@@ -110,8 +115,11 @@ struct LaunchOfferView: View {
                             }
                             .foregroundStyle(RecallTheme.accent)
 
-                            Button("Not now") { dismissed = true; dismiss() }
-                                .buttonStyle(.bordered)
+                            Button("Not now") {
+                                dismissed = true
+                                dismiss()
+                            }
+                            .buttonStyle(.bordered)
 
                             Text("Yearly subscription, auto-renewable. Cancel at least 24 hours before renewal. Manage it in App Store → Subscriptions. This welcome offer shows once.")
                                 .font(.caption2)

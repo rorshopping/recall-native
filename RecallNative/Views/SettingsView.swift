@@ -34,6 +34,7 @@ struct SettingsView: View {
     private let companyName = "Richard Bäcker"
     private let supportEmail = "info.recall.apps@gmail.com"
     private let privacyEmail = "info.recall.apps@gmail.com"
+    private let dailyGoalOptions = [5, 10, 20, 30, 50, 100, 200]
 
     var body: some View {
         NavigationStack {
@@ -47,7 +48,13 @@ struct SettingsView: View {
                 }
 
                 Section("Study") {
-                    Stepper("Daily goal · \(dailyGoal) cards", value: $dailyGoal, in: 5...200, step: 5)
+                    Picker("Daily goal", selection: $dailyGoal) {
+                        ForEach(dailyGoalOptions, id: \.self) { goal in
+                            Text("\(goal) cards").tag(goal)
+                        }
+                    }
+                    Text("Your daily goal is used for progress and streaks in Stats.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Toggle("Haptic feedback", isOn: $hapticsEnabled)
                     Text("Slight feedback helps confirm Good and Easy grades. Turn it off for silent study.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -61,9 +68,9 @@ struct SettingsView: View {
                                 Task { await toggleBiometricLock(value) }
                             }
                         )) {
-                            Label("Require Face ID", systemImage: "faceid")
+                            Label("Require Face ID / Touch ID", systemImage: "faceid")
                         }
-                        Text("Require Face ID or your device passcode when reopening Recall after a short background period.")
+                        Text("Require Face ID, Touch ID, or your device passcode when reopening Recall after a short background period.")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
                         Label("Face ID / Touch ID unavailable", systemImage: "faceid")
@@ -95,7 +102,9 @@ struct SettingsView: View {
                         }
                     }
                     Button("Restore Purchases", systemImage: "arrow.clockwise") { Task { await subscriptions.restore() } }
-                    Button("Manage Subscription", systemImage: "creditcard") { openURL(URL(string: "https://apps.apple.com/account/subscriptions")!) }
+                    Button("Manage Subscription", systemImage: "creditcard") {
+                        if let url = URL(string: "https://apps.apple.com/account/subscriptions") { openURL(url) }
+                    }
                     Text("39,99 € / year · auto-renewable. Payment is charged to your Apple ID. Cancel anytime in Settings → Apple Account → Subscriptions, at least 24 hours before renewal.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -137,8 +146,8 @@ struct SettingsView: View {
                 Section("About") {
                     Button { showingAbout = true } label: { Label("About Recall", systemImage: "info.circle") }
                     LabeledContent("Maker", value: companyName)
-                    Button { openURL(URL(string: "mailto:\(supportEmail)")!) } label: { LabeledContent("Support", value: supportEmail) }
-                    Button { openURL(URL(string: "mailto:\(privacyEmail)")!) } label: { Label("Privacy & data", systemImage: "hand.raised") }
+                    Button { if let url = URL(string: "mailto:\(supportEmail)") { openURL(url) } } label: { LabeledContent("Support", value: supportEmail) }
+                    Button { if let url = URL(string: "mailto:\(privacyEmail)") { openURL(url) } } label: { Label("Privacy & data", systemImage: "hand.raised") }
                     Button { showingLicenses = true } label: { Label("Licenses & Attributions", systemImage: "doc.text.magnifyingglass") }
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                     LabeledContent("Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")

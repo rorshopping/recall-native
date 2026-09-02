@@ -34,6 +34,18 @@ final class Deck {
         return min(max(0, newLimit - used), newCount)
     }
 
+    /// Records that one new card was introduced today and rolls the counter
+    /// over automatically when the calendar day changes.
+    func recordNewCardStudy(on date: Date = .now, calendar: Calendar = .current) {
+        let today = calendar.startOfDay(for: date)
+        let storedDay = newDay.flatMap { Self.dayFormatter.date(from: $0) }
+        if storedDay.map({ calendar.isDate($0, inSameDayAs: today) }) != true {
+            newDay = Self.dayFormatter.string(from: today)
+            newStudiedToday = 0
+        }
+        newStudiedToday += 1
+    }
+
     nonisolated(unsafe) private static let dayFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]

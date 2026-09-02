@@ -207,4 +207,4 @@ struct ReviewView: View {
     }
 }
 
-private struct RatingButton: View { let title: String; let subtitle: String; let value: Int; let action: (Int) -> Void; var body: some View { Button { action(value) } label: { VStack(spacing: 2) { Text(title).font(.subheadline.weight(.semibold)); Text(subtitle).font(.caption2).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, minHeight: 42) }.buttonStyle(.borderedProminent).controlSize(.small).frame(maxWidth: .infinity).accessibilityLabel("\(title), \(subtitle)") } }
+private struct RatingButton: View { let title: String; let subtitle: String; let value: Int; let action: (Int) -> Void; var body: some View { Button { action(value) } label: { VStack(spacing: 2) { Text(title).font(.subheadline.weight(.semibold)); Text(subtitle).font(.caption2).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, minHeight: 42) }.buttonStyle(.borderedProminent).controlSize(.small).frame(maxWidth: .infinity).accessibilityLabel("\(title), \(subtitle)").accessibilityHint("Rate this card as \(title).") } }

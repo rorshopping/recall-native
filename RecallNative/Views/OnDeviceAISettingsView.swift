@@ -44,7 +44,7 @@ struct OnDeviceAISettingsView: View {
                         Text("Flashcard generation runs locally with LiteRT-LM. Your study material is not sent to a cloud AI service by Recall.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button("Remove downloaded model", role: .destructive, systemImage: "trash") {
+                        Button("Remove downloaded model", systemImage: "trash", role: .destructive) {
                             Task {
                                 await LiteRTModelStore.shared.deleteDownloadedModel()
                                 await refresh()

@@ -123,6 +123,13 @@ struct HomeView: View {
                             }
                         }
                     }
+
+                    // iOS 26's floating Liquid Glass tab bar covers the bottom
+                    // ~14% of the window. Without this trailing spacer the
+                    // empty-library card sits underneath the bar and is clipped
+                    // at first scroll position. The extra vertical room lets
+                    // the user scroll the last card clear of the bar.
+                    Color.clear.frame(height: 96)
                 }
                 .padding(.horizontal)
                 .padding(.top, 12)

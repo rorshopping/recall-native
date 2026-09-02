@@ -40,32 +40,34 @@ struct RootView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            TabView(selection: $selectedTab) {
-                HomeView(onStartReview: { showingHomeReview = true })
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .tabItem { Label("Home", systemImage: "house.fill") }
-                    .tag(RecallTab.home)
-                DecksView()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .tabItem { Label("Decks", systemImage: "tray.full") }
-                    .tag(RecallTab.decks)
-                CreateView()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .tabItem { Label("Create", systemImage: "sparkles") }
-                    .tag(RecallTab.create)
-                StatsView()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
-                    .tag(RecallTab.stats)
-                SettingsView()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .tabItem { Label("Settings", systemImage: "gearshape") }
-                    .tag(RecallTab.settings)
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+        // iOS 26 ships a floating Liquid Glass tab bar as the only style on
+        // iPhone (per Apple's HIG). Tab content scrolls behind it; the
+        // per-tab background must reach the bottom safe-area edge so the
+        // tab bar's translucency shows content underneath instead of the
+        // default system background.
+        TabView(selection: $selectedTab) {
+            HomeView(onStartReview: { showingHomeReview = true })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(RecallTab.home)
+            DecksView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Decks", systemImage: "tray.full") }
+                .tag(RecallTab.decks)
+            CreateView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Create", systemImage: "sparkles") }
+                .tag(RecallTab.create)
+            StatsView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(RecallTab.stats)
+            SettingsView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(RecallTab.settings)
         }
-        .ignoresSafeArea(.container, edges: .bottom)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .tint(RecallTheme.accent)
         .preferredColorScheme(colorScheme)

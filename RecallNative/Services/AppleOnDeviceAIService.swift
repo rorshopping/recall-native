@@ -8,6 +8,7 @@ struct AppleOnDeviceAIService: Sendable {
     enum ServiceError: LocalizedError {
         case unavailable
         case emptyResponse
+        case contextTooLarge
 
         var errorDescription: String? {
             switch self {
@@ -15,6 +16,8 @@ struct AppleOnDeviceAIService: Sendable {
                 return "Apple's on-device language model is not available on this device."
             case .emptyResponse:
                 return "Apple's on-device language model returned no content."
+            case .contextTooLarge:
+                return "This source is too large for Apple's on-device model."
             }
         }
     }
@@ -27,8 +30,18 @@ struct AppleOnDeviceAIService: Sendable {
         let material = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !material.isEmpty else { throw AIServiceError.emptyInput }
 
+        let model = SystemLanguageModel.default
         let session = LanguageModelSession(instructions: systemPrompt)
         let prompt = "SOURCE MATERIAL:\n\(material)\n\nTASK:\n\(instruction)\n\nReturn ONLY valid JSON. Do not include markdown, prose, or code fences."
+
+        // Apple documents a 4,096-token context window and counts both input and output.
+        // Leave a meaningful response budget so a long source does not fail at runtime.
+        let inputTokens = model.tokenCount(for: systemPrompt) + model.tokenCount(for: prompt)
+        let responseBudget = 1_200
+        guard inputTokens + responseBudget <= model.contextSize else {
+            throw ServiceError.contextTooLarge
+        }
+
         let response = try await session.respond(to: prompt)
         let raw = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { throw ServiceError.emptyResponse }

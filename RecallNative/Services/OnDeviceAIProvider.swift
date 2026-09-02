@@ -34,9 +34,7 @@ enum OnDeviceAIProvider: Sendable, Equatable {
         }
     }
 
-    /// Explains why Apple's model is not currently active. This is intentionally separate
-    /// from provider selection so the app can distinguish an unsupported device from a model
-    /// that is still downloading or Apple Intelligence being disabled.
+    /// Explains the current Apple model readiness state.
     static var appleAvailabilityDetail: String {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {

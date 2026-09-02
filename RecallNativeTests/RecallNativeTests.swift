@@ -203,6 +203,38 @@ struct RecallNativeTests {
         #expect(metrics.positiveRate == 50)
     }
 
+    @Test func reviewMetricsCalculateRatingPercentages() {
+        let reviews = [1, 2, 2, 3, 4].map { ReviewLog(rating: $0) }
+        let metrics = ReviewMetrics(reviews: reviews)
+        #expect(metrics.ratingPercentage(1) == 20)
+        #expect(metrics.ratingPercentage(2) == 40)
+        #expect(metrics.ratingPercentage(3) == 20)
+        #expect(metrics.ratingPercentage(4) == 20)
+        #expect(metrics.ratingPercentage(9) == 0)
+    }
+
+    @Test func reviewMetricsCalculateRollingCountsAndStreak() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let dayOne = calendar.date(from: DateComponents(year: 2026, month: 9, day: 1))!
+        let dayTwo = calendar.date(byAdding: .day, value: 1, to: dayOne)!
+        let dayThree = calendar.date(byAdding: .day, value: 1, to: dayOne)!
+        let dayFour = calendar.date(byAdding: .day, value: 1, to: dayOne)!
+
+        let first = ReviewLog(rating: 3); first.reviewedAt = dayTwo.addingTimeInterval(3_600)
+        let second = ReviewLog(rating: 4); second.reviewedAt = dayThree.addingTimeInterval(7_200)
+        let third = ReviewLog(rating: 2); third.reviewedAt = dayFour.addingTimeInterval(10_800)
+        let fourth = ReviewLog(rating: 1); fourth.reviewedAt = dayFour.addingTimeInterval(14_400)
+        let metrics = ReviewMetrics(reviews: [first, second, third, fourth], calendar: calendar)
+
+        #expect(metrics.count(inLastDays: 1, endingOn: dayFour) == 2)
+        #expect(metrics.count(inLastDays: 2, endingOn: dayFour) == 3)
+        #expect(metrics.count(inLastDays: 4, endingOn: dayFour) == 4)
+        #expect(metrics.count(inLastDays: 0, endingOn: dayFour) == 0)
+        #expect(metrics.streak(endingOn: dayFour) == 3)
+        #expect(metrics.streak(endingOn: dayOne) == 0)
+    }
+
     @Test func reviewMetricsCountInclusiveDateRange() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -228,6 +260,9 @@ struct RecallNativeTests {
         #expect(metrics.total == 0)
         #expect(metrics.averageRating == 0)
         #expect(metrics.positiveRate == 0)
+        #expect(metrics.ratingPercentage(4) == 0)
+        #expect(metrics.count(inLastDays: 7) == 0)
+        #expect(metrics.streak() == 0)
         #expect(metrics.count(from: .now, through: .now) == 0)
     }
 

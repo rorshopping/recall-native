@@ -10,10 +10,24 @@ struct OnDeviceAISettingsView: View {
 
     private let modelSize = "2.59 GB"
 
+    private var provider: OnDeviceAIProvider {
+        OnDeviceAIProvider.current(gemmaAvailable: isInstalled)
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Gemma 4 E2B") {
+                Section("Active AI") {
+                    Label(provider.displayName, systemImage: provider.systemImage)
+                    Text(provider.detail).font(.subheadline).foregroundStyle(.secondary)
+                    if provider.isAvailable {
+                        Label("Inference stays on this iPhone", systemImage: "iphone")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Gemma 4 fallback") {
                     HStack {
                         Label(isInstalled ? "Ready on this iPhone" : "Not downloaded", systemImage: isInstalled ? "checkmark.circle.fill" : "arrow.down.circle")
                         Spacer()
@@ -33,17 +47,17 @@ struct OnDeviceAISettingsView: View {
                         .accessibilityLabel("Downloading Gemma 4, \(progressText)")
 
                         Button("Cancel download", systemImage: "xmark.circle", role: .destructive) {
-                            Task { await LiteRTModelStore.shared.cancelDownload() }
+                            Task { await LiteRTModelStore.shared.cancelDownload(); await refresh() }
                         }
                         .accessibilityHint("Stops the download and removes the partial model file.")
                     } else if !isInstalled {
                         Button("Download Gemma 4", systemImage: "arrow.down.circle.fill") {
                             startDownload()
                         }
-                        Text("The model is downloaded once and then runs entirely on-device. A Wi-Fi connection is recommended. The download is about \(modelSize).")
+                        Text(provider == .apple ? "Optional on this device. Keeping Gemma installed provides a local fallback if Apple's model becomes unavailable." : "The model is downloaded once and then runs entirely on-device. A Wi-Fi connection is recommended. The download is about \(modelSize).")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
-                        Text("Flashcard generation runs locally with LiteRT-LM. Your study material is not sent to a cloud AI service by Recall.")
+                        Text("Gemma 4 is installed as the local compatibility fallback. Flashcard and advanced generation can use it automatically if Apple's model is unavailable or generation fails.")
                             .font(.caption).foregroundStyle(.secondary)
                         Button("Remove downloaded model", systemImage: "trash", role: .destructive) {
                             showingRemoveConfirmation = true
@@ -53,7 +67,14 @@ struct OnDeviceAISettingsView: View {
 
                 Section("Privacy") {
                     Label("On-device inference", systemImage: "iphone")
-                    Text("After download, Gemma processes your study material locally on your iPhone. No API key is required.")
+                    Text("Recall does not send study material to a cloud AI service for generation. When Apple’s on-device model is available it is preferred; otherwise Recall can use the locally installed Gemma fallback.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Section("How fallback works") {
+                    Label("1. Apple on-device model", systemImage: "sparkles")
+                    Label("2. Gemma 4 E2B", systemImage: "cpu")
+                    Text("Recall automatically tries the Apple model first on supported systems. If it is unavailable or generation fails, Gemma is used when installed. No manual model switching is required.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -66,7 +87,7 @@ struct OnDeviceAISettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This frees about \(modelSize) of storage. You can download the model again later.")
+                Text("This frees about \(modelSize) of storage. If Apple’s on-device model is unavailable, Recall will no longer have a Gemma fallback until you download it again.")
             }
             .alert("Model download failed", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
                 Button("OK") {}

@@ -9,7 +9,7 @@ struct StatsView: View {
     @State private var showingHistory = false
 
     private var calendar: Calendar { Calendar.current }
-    private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, calendar: calendar) }
+    private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, aggregateHistory: ReviewHistoryStore.load(), calendar: calendar) }
     private var todayReviews: Int { metrics.count(on: .now) }
     private var currentStreak: Int { metrics.activeStreak(endingOn: .now) }
     private var streakAtRisk: Bool { currentStreak > 0 && todayReviews == 0 }
@@ -60,9 +60,7 @@ struct StatsView: View {
                         Text("REVIEW QUALITY").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
                         Spacer()
                         if !reviews.isEmpty {
-                            Button("History") { showingHistory = true }
-                                .font(.caption.weight(.semibold))
-                                .accessibilityLabel("Review history")
+                            Button("History") { showingHistory = true }.font(.caption.weight(.semibold)).accessibilityLabel("Review history")
                         }
                     }
                     RecallCard {
@@ -98,12 +96,9 @@ struct StatsView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Library").font(.headline)
                             InfoRow(title: "Decks", value: "\(decks.count)", icon: "rectangle.stack")
-                            Divider()
-                            InfoRow(title: "New cards", value: "\(newCount)", icon: "sparkles")
-                            Divider()
-                            InfoRow(title: "Due cards", value: "\(dueCount)", icon: "clock")
-                            Divider()
-                            InfoRow(title: "Total reviews", value: "\(metrics.total)", icon: "arrow.clockwise")
+                            Divider(); InfoRow(title: "New cards", value: "\(newCount)", icon: "sparkles")
+                            Divider(); InfoRow(title: "Due cards", value: "\(dueCount)", icon: "clock")
+                            Divider(); InfoRow(title: "Total reviews", value: "\(metrics.total)", icon: "arrow.clockwise")
                         }
                     }
                     RecallCard {
@@ -113,9 +108,7 @@ struct StatsView: View {
                         }
                     }
                     Text("Recall stores everything on your device, free, with no account required.").font(.caption).foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
+                }.frame(maxWidth: .infinity, alignment: .leading).padding()
             }
             .background(RecallTheme.canvas)
             .navigationTitle("Stats")
@@ -128,24 +121,8 @@ struct StatsView: View {
 private enum ReviewHistoryFilter: String, CaseIterable, Identifiable {
     case all, again, hard, good, easy
     var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .all: return "All"
-        case .again: return "Again"
-        case .hard: return "Hard"
-        case .good: return "Good"
-        case .easy: return "Easy"
-        }
-    }
-    var rating: Int? {
-        switch self {
-        case .all: return nil
-        case .again: return 1
-        case .hard: return 2
-        case .good: return 3
-        case .easy: return 4
-        }
-    }
+    var title: String { rawValue.capitalized }
+    var rating: Int? { switch self { case .all: nil; case .again: 1; case .hard: 2; case .good: 3; case .easy: 4 } }
 }
 
 private struct ReviewHistoryView: View {
@@ -153,49 +130,26 @@ private struct ReviewHistoryView: View {
     let reviews: [ReviewLog]
     @State private var searchText = ""
     @State private var filter: ReviewHistoryFilter = .all
-
     private var filteredReviews: [ReviewLog] {
         reviews.filter { review in
             let matchesRating = filter.rating.map { review.rating == $0 } ?? true
-            guard matchesRating else { return false }
-            guard !searchText.isEmpty else { return true }
+            guard matchesRating, !searchText.isEmpty else { return matchesRating }
             let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-            return (review.card?.question.localizedLowercase.contains(query) ?? false) ||
-                (review.card?.answer.localizedLowercase.contains(query) ?? false)
+            return (review.card?.question.localizedLowercase.contains(query) ?? false) || (review.card?.answer.localizedLowercase.contains(query) ?? false)
         }
     }
-
     var body: some View {
         NavigationStack {
             Group {
-                if reviews.isEmpty {
-                    ContentUnavailableView("No reviews yet", systemImage: "clock.arrow.circlepath", description: Text("Your completed reviews will appear here."))
-                } else if filteredReviews.isEmpty {
-                    ContentUnavailableView("No matching reviews", systemImage: "magnifyingglass", description: Text("Try another search or rating filter."))
-                } else {
-                    List {
-                        ForEach(filteredReviews) { review in
-                            ReviewHistoryRow(review: review)
-                        }
-                    }
-                    .listStyle(.plain)
-                }
+                if reviews.isEmpty { ContentUnavailableView("No reviews yet", systemImage: "clock.arrow.circlepath", description: Text("Your completed reviews will appear here.")) }
+                else if filteredReviews.isEmpty { ContentUnavailableView("No matching reviews", systemImage: "magnifyingglass", description: Text("Try another search or rating filter.")) }
+                else { List(filteredReviews) { ReviewHistoryRow(review: $0) }.listStyle(.plain) }
             }
             .searchable(text: $searchText, prompt: "Search cards")
-            .navigationTitle("Review history")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Review history").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Picker("Rating", selection: $filter) {
-                            ForEach(ReviewHistoryFilter.allCases) { item in
-                                Text(item.title).tag(item)
-                            }
-                        }
-                    } label: {
-                        Label(filter.title, systemImage: filter == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    }
-                    .accessibilityLabel("Filter reviews by rating")
+                    Menu { Picker("Rating", selection: $filter) { ForEach(ReviewHistoryFilter.allCases) { Text($0.title).tag($0) } } } label: { Label(filter.title, systemImage: filter == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") }
                 }
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
@@ -205,76 +159,31 @@ private struct ReviewHistoryView: View {
 
 private struct ReviewHistoryRow: View {
     let review: ReviewLog
-    private var ratingTitle: String {
-        switch review.rating {
-        case 1: return "Again"
-        case 2: return "Hard"
-        case 3: return "Good"
-        case 4: return "Easy"
-        default: return "Review"
-        }
-    }
+    private var ratingTitle: String { ["Review", "Again", "Hard", "Good", "Easy"].indices.contains(review.rating) ? ["Review", "Again", "Hard", "Good", "Easy"][review.rating] : "Review" }
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: ratingIcon).font(.headline).foregroundStyle(ratingColor).frame(width: 30, height: 30).background(ratingColor.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(review.card?.question ?? "Card no longer available").font(.subheadline.weight(.semibold)).lineLimit(2)
-                HStack(spacing: 6) {
-                    Text(ratingTitle).font(.caption.weight(.medium)).foregroundStyle(ratingColor)
-                    Text("·").foregroundStyle(.tertiary)
-                    Text(review.reviewedAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                }
+                HStack(spacing: 6) { Text(ratingTitle).font(.caption.weight(.medium)).foregroundStyle(ratingColor); Text("·").foregroundStyle(.tertiary); Text(review.reviewedAt.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary) }
             }
             Spacer(minLength: 0)
-        }
-        .padding(.vertical, 5)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(ratingTitle), \(review.card?.question ?? "card no longer available"), \(review.reviewedAt.formatted(date: .abbreviated, time: .shortened))")
+        }.padding(.vertical, 5).accessibilityElement(children: .combine)
     }
-    private var ratingIcon: String {
-        switch review.rating {
-        case 1: return "arrow.uturn.backward"
-        case 2: return "minus"
-        case 3: return "checkmark"
-        case 4: return "bolt.fill"
-        default: return "checkmark.circle"
-        }
-    }
-    private var ratingColor: Color {
-        switch review.rating {
-        case 1: return .red
-        case 2: return .orange
-        case 3: return RecallTheme.accent
-        case 4: return .green
-        default: return .secondary
-        }
-    }
+    private var ratingIcon: String { ["checkmark.circle", "arrow.uturn.backward", "minus", "checkmark", "bolt.fill"].indices.contains(review.rating) ? ["checkmark.circle", "arrow.uturn.backward", "minus", "checkmark", "bolt.fill"][review.rating] : "checkmark.circle" }
+    private var ratingColor: Color { switch review.rating { case 1: .red; case 2: .orange; case 3: RecallTheme.accent; case 4: .green; default: .secondary } }
 }
 
 private struct GoalRing: View {
     let progress: Double; let value: Int; let goal: Int
     var body: some View {
-        ZStack {
-            Circle().stroke(.secondary.opacity(0.15), lineWidth: 10)
-            Circle().trim(from: 0, to: progress).stroke(RecallTheme.accent, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
-            VStack(spacing: 0) { Text("\(value)").font(.title2.bold()); Text("of \(goal)").font(.caption2).foregroundStyle(.secondary) }
-        }.frame(width: 108, height: 108).accessibilityLabel("Reviews today: \(value) of \(goal)")
+        ZStack { Circle().stroke(.secondary.opacity(0.15), lineWidth: 10); Circle().trim(from: 0, to: progress).stroke(RecallTheme.accent, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90)); VStack(spacing: 0) { Text("\(value)").font(.title2.bold()); Text("of \(goal)").font(.caption2).foregroundStyle(.secondary) } }.frame(width: 108, height: 108).accessibilityLabel("Reviews today: \(value) of \(goal)")
     }
 }
 private struct WeeklyBars: View {
     let values: [(label: String, count: Int, today: Bool)]
     private var maxValue: Int { max(1, values.map(\.count).max() ?? 1) }
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            ForEach(Array(values.enumerated()), id: \.offset) { _, item in
-                VStack(spacing: 6) {
-                    Spacer(minLength: 0)
-                    RoundedRectangle(cornerRadius: 6).fill(item.today ? RecallTheme.accent : .secondary.opacity(item.count > 0 ? 0.5 : 0.12)).frame(height: max(5, CGFloat(item.count) / CGFloat(maxValue) * 90))
-                    Text(item.label).font(.caption2).foregroundStyle(item.today ? RecallTheme.accent : .secondary)
-                }.frame(maxWidth: .infinity)
-            }
-        }.frame(height: 120)
-    }
+    var body: some View { HStack(alignment: .bottom, spacing: 8) { ForEach(Array(values.enumerated()), id: \.offset) { _, item in VStack(spacing: 6) { Spacer(minLength: 0); RoundedRectangle(cornerRadius: 6).fill(item.today ? RecallTheme.accent : .secondary.opacity(item.count > 0 ? 0.5 : 0.12)).frame(height: max(5, CGFloat(item.count) / CGFloat(maxValue) * 90)); Text(item.label).font(.caption2).foregroundStyle(item.today ? RecallTheme.accent : .secondary) }.frame(maxWidth: .infinity) } }.frame(height: 120) }
 }
 private struct StatCard: View {
     let title: String; let value: String; let icon: String
@@ -283,15 +192,7 @@ private struct StatCard: View {
 private struct QualityBar: View {
     let label: String; let count: Int; let total: Int
     private var fraction: Double { total > 0 ? Double(count) / Double(total) : 0 }
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(label).font(.caption.weight(.semibold)).frame(width: 42, alignment: .leading)
-            GeometryReader { proxy in
-                Capsule().fill(.secondary.opacity(0.12)).overlay(alignment: .leading) { Capsule().fill(RecallTheme.accent).frame(width: proxy.size.width * fraction) }
-            }.frame(height: 8)
-            Text("\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 24, alignment: .trailing)
-        }.frame(height: 18).accessibilityElement(children: .ignore).accessibilityLabel("\(label): \(count) reviews")
-    }
+    var body: some View { HStack(spacing: 10) { Text(label).font(.caption.weight(.semibold)).frame(width: 42, alignment: .leading); GeometryReader { proxy in Capsule().fill(.secondary.opacity(0.12)).overlay(alignment: .leading) { Capsule().fill(RecallTheme.accent).frame(width: proxy.size.width * fraction) } }.frame(height: 8); Text("\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 24, alignment: .trailing) }.frame(height: 18) }
 }
 private struct InfoRow: View {
     let title: String; let value: String; let icon: String

@@ -17,15 +17,10 @@ final class RecallNativeAppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct RecallNativeApp: App {
     @UIApplicationDelegateAdaptor(RecallNativeAppDelegate.self) private var appDelegate
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some Scene {
         WindowGroup {
-            if hasCompletedOnboarding {
-                RootView()
-            } else {
-                OnboardingView()
-            }
+            RootView()
         }
         .modelContainer(for: [Deck.self, Flashcard.self, ReviewLog.self])
     }

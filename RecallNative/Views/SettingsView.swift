@@ -20,6 +20,8 @@ struct SettingsView: View {
     @State private var showingResetConfirmation = false
     @State private var showingImportConfirmation = false
     @State private var showingICloudRestoreConfirmation = false
+    @State private var showingICloudEnableConfirmation = false
+    @State private var pendingICloudEnable = false
     @State private var pendingImportData: Data?
     @State private var showingAbout = false
     @State private var showingAIInfo = false
@@ -124,6 +126,12 @@ struct SettingsView: View {
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
             .alert("Settings error", isPresented: Binding(get: { errorMessage != nil || subscriptions.purchaseError != nil }, set: { if !$0 { errorMessage = nil; subscriptions.clearError() } })) { Button("OK") { errorMessage = nil; subscriptions.clearError() } } message: { Text(errorMessage ?? subscriptions.purchaseError ?? "") }
             .alert("Face ID / Touch ID unavailable", isPresented: $showingBiometricUnavailable) { Button("OK") {} } message: { Text("Set up Face ID or Touch ID in iOS Settings before enabling the app lock.") }
+            .confirmationDialog("Enable iCloud sync?", isPresented: $showingICloudEnableConfirmation, titleVisibility: .visible) {
+                Button("Enable") { enableICloudAfterConfirmation() }
+                Button("Not now", role: .cancel) { pendingICloudEnable = false }
+            } message: {
+                Text("Your decks and cards will sync across your devices through your personal iCloud. Recall cannot read them.")
+            }
             .confirmationDialog("Import this backup?", isPresented: $showingImportConfirmation, titleVisibility: .visible) { Button("Import and Replace", role: .destructive) { performPendingImport() }; Button("Cancel", role: .cancel) { pendingImportData = nil } } message: { Text("This replaces all current decks, cards, and review history. This cannot be undone.") }
             .confirmationDialog("Restore from iCloud?", isPresented: $showingICloudRestoreConfirmation, titleVisibility: .visible) { Button("Restore and Replace", role: .destructive) { restoreFromICloud() }; Button("Cancel", role: .cancel) {} } message: { Text("This replaces all current local decks, cards, and review history with the latest iCloud backup. This cannot be undone.") }
             .confirmationDialog("Delete all local study data?", isPresented: $showingResetConfirmation, titleVisibility: .visible) { Button("Delete Everything", role: .destructive) { resetData() }; Button("Cancel", role: .cancel) {} }
@@ -134,7 +142,28 @@ struct SettingsView: View {
     private var syncStateIcon: String { switch iCloudState { case .remoteNewer: return "exclamationmark.icloud"; case .upToDate: return "checkmark.icloud"; default: return "icloud" } }
     private var syncStateIsConflict: Bool { iCloudState == .remoteNewer }
     private func toggleBiometricLock(_ enabled: Bool) async { if enabled { guard biometricLock.available else { showingBiometricUnavailable = true; return }; guard await biometricLock.confirmEnable() else { return }; biometricEnabled = true } else { biometricLock.setEnabled(false); biometricEnabled = false } }
-    private func toggleICloud(_ enabled: Bool) { if enabled { let available = iCloud.isAvailable(); iCloudAvailable = available; guard available else { errorMessage = "iCloud is unavailable. Sign in to iCloud and enable the iCloud capability for this app before turning sync on."; return }; iCloudEnabled = true; iCloudState = iCloud.state(); syncNow() } else { iCloudEnabled = false } }
+    private func toggleICloud(_ enabled: Bool) {
+        if enabled {
+            let available = iCloud.isAvailable()
+            iCloudAvailable = available
+            guard available else {
+                errorMessage = "iCloud is unavailable. Sign in to iCloud and enable the iCloud capability for this app before turning sync on."
+                return
+            }
+            pendingICloudEnable = true
+            showingICloudEnableConfirmation = true
+        } else {
+            pendingICloudEnable = false
+            iCloudEnabled = false
+        }
+    }
+    private func enableICloudAfterConfirmation() {
+        guard pendingICloudEnable else { return }
+        pendingICloudEnable = false
+        iCloudEnabled = true
+        iCloudState = iCloud.state()
+        syncNow()
+    }
     private func syncNow() { guard iCloudEnabled else { return }; do { if try iCloud.push(context: modelContext) { lastSync = iCloud.lastSyncDate(); iCloudState = iCloud.state() } else { errorMessage = "iCloud is unavailable on this device." } } catch { iCloudState = iCloud.state(); errorMessage = error.localizedDescription } }
     private func restoreFromICloud() { guard iCloudEnabled else { return }; do { if try iCloud.pull(context: modelContext, replaceExisting: true) { lastSync = iCloud.lastSyncDate(); iCloudState = iCloud.state() } else { errorMessage = "No iCloud backup is available yet. Sync this device first or use Import Backup." } } catch { errorMessage = error.localizedDescription } }
     private func exportBackup() { do { let data = try BackupService.makeBackup(context: modelContext); let url = FileManager.default.temporaryDirectory.appendingPathComponent("Recall-Backup-\(Date().formatted(.iso8601.year().month().day())).json"); try data.write(to: url, options: .atomic); backupURL = url; showingShare = true } catch { errorMessage = error.localizedDescription } }

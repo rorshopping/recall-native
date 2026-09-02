@@ -2,7 +2,7 @@ import Foundation
 import RecallLiteRT
 
 protocol OnDeviceAIService: Sendable {
-    func generateFlashcards(from text: String) async throws -> [GeneratedCard]
+    func generateFlashcards(from text: String) async throws -> GeneratedDeck
 }
 
 struct GeneratedCard: Identifiable, Sendable, Hashable {
@@ -11,6 +11,11 @@ struct GeneratedCard: Identifiable, Sendable, Hashable {
     let answer: String
     let hint: String
     let tags: String
+}
+
+struct GeneratedDeck: Sendable, Hashable {
+    let name: String
+    let cards: [GeneratedCard]
 }
 
 enum AIServiceError: LocalizedError {
@@ -46,13 +51,9 @@ struct LocalAIService: OnDeviceAIService {
 
     private let modelStore = LiteRTModelStore.shared
 
-    func generateFlashcards(from text: String) async throws -> [GeneratedCard] {
+    func generateFlashcards(from text: String) async throws -> GeneratedDeck {
         let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw AIServiceError.emptyInput }
-        // Recall's original Create flow accepts any non-empty topic or notes.
-        // Do not impose an additional character-count gate here: short topics
-        // should still reach Gemma, which can decide whether there is enough
-        // material to produce useful cards.
         guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
         do {
             let engine = RecallLiteRTEngine(modelPath: modelURL.path)
@@ -65,7 +66,7 @@ struct LocalAIService: OnDeviceAIService {
         }
     }
 
-    private static func parseDeck(_ raw: String) throws -> [GeneratedCard] {
+    private static func parseDeck(_ raw: String) throws -> GeneratedDeck {
         let normalized = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard let data = normalized.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let cards = object["cards"] as? [[String: Any]] else {
             throw AIServiceError.generationFailed("Gemma 4 returned an invalid flashcard deck. Please try again.")
@@ -78,6 +79,7 @@ struct LocalAIService: OnDeviceAIService {
             return GeneratedCard(question: question, answer: answer, hint: (card["hint"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines), tags: (card["tags"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
         }
         guard !parsed.isEmpty else { throw AIServiceError.insufficientContent }
-        return Array(parsed.prefix(25))
+        let generatedName = (object["deck"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return GeneratedDeck(name: generatedName, cards: Array(parsed.prefix(25)))
     }
 }

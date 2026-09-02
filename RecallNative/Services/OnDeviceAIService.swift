@@ -58,14 +58,17 @@ struct LocalAIService: OnDeviceAIService {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             do {
-                let data = try await AppleOnDeviceAIService().generateJSON(
-                    instruction: "Generate the requested flashcard deck from the supplied study material.",
+                let data = try await AppleOnDeviceAIService().generateFlashcardJSON(
                     systemPrompt: Self.systemPrompt,
                     source: cleaned
                 )
-                return try Self.parseDeckData(data, errorPrefix: "The on-device model")
+                return try Self.parseDeckData(data, errorPrefix: "Apple's on-device model")
             } catch AppleOnDeviceAIService.ServiceError.unavailable {
                 // Fall through to Gemma when Apple's model is unavailable.
+            } catch AppleOnDeviceAIService.ServiceError.unsupportedLocale {
+                // Fall through to Gemma when the current language is not supported.
+            } catch AppleOnDeviceAIService.ServiceError.contextTooLarge {
+                // Fall through to Gemma for sources that exceed Apple's context budget.
             } catch {
                 // Any Apple generation or parsing failure falls back to Gemma.
             }

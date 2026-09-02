@@ -39,9 +39,12 @@ struct HomeView: View {
     private var recentReviews: [ReviewLog] { Array(reviews.prefix(3)) }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+        // No NavigationStack on purpose: the home dashboard has no
+        // navigation title, and a NavigationStack without a title still
+        // reserves a 44pt navigation bar band, eating into the visible
+        // content area.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(greeting).font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
                         Text("Keep your memory sharp.").font(.largeTitle.bold()).tracking(-0.5)
@@ -127,8 +130,6 @@ struct HomeView: View {
                 .padding(.horizontal).padding(.top, 12)
             }
             .background(RecallTheme.canvas.ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-        }
     }
 
     private var greeting: String {

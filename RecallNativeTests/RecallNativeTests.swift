@@ -61,6 +61,26 @@ struct RecallNativeTests {
         #expect(!relearning.isNew)
     }
 
+    @Test func flashcardStatusTitlesReflectLearningState() {
+        let newCard = Flashcard(question: "Q", answer: "A")
+        #expect(newCard.statusTitle == "New")
+
+        let learning = Flashcard(question: "Q", answer: "A")
+        learning.state = "learning"
+        learning.dueAt = .now
+        #expect(learning.statusTitle == "Learning now")
+
+        let relearning = Flashcard(question: "Q", answer: "A")
+        relearning.state = "relearning"
+        relearning.dueAt = .now
+        #expect(relearning.statusTitle == "Relearning now")
+
+        let dueReview = Flashcard(question: "Q", answer: "A")
+        dueReview.state = "review"
+        dueReview.dueAt = .now
+        #expect(dueReview.statusTitle == "Due now")
+    }
+
     @Test func importedDeckPreservesCardMetadata() throws {
         let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
         let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))

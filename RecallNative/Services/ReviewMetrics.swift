@@ -63,10 +63,21 @@ struct ReviewMetrics {
         var result = 0
         while dailyCounts[day, default: 0] > 0 {
             result += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            guard let previous = calendar.date(byAdding: .day, value: -1, from: day) else { break }
             day = previous
         }
         return result
+    }
+
+    /// The user's active streak, allowing the current day to remain at risk until midnight.
+    /// If there is no review today, yesterday's consecutive streak is returned.
+    func activeStreak(endingOn date: Date = .now) -> Int {
+        let today = calendar.startOfDay(for: date)
+        if dailyCounts[today, default: 0] > 0 {
+            return streak(endingOn: today)
+        }
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, from: today) else { return 0 }
+        return streak(endingOn: yesterday)
     }
 
     /// Number of reviews between two calendar days, inclusive.

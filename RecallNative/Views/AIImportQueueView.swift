@@ -12,7 +12,6 @@ struct AIImportQueueView: View {
     @State private var errorMessage: String?
     @State private var extractionMessage: String?
     @State private var refreshTask: Task<Void, Never>?
-    @State private var blockedJobID: UUID?
 
     private let queue = AIImportQueue.shared
     private let importer = DocumentImportService()
@@ -297,13 +296,10 @@ struct AIImportQueueView: View {
     private func saveCompletedIfPossible(_ snapshot: [AIImportQueue.Job]) async {
         for job in snapshot {
             guard case .completed(let generated) = job.state else { continue }
-            guard blockedJobID != job.id else { continue }
             guard EntitlementRules.canCreateDeck(isPremium: subscriptions.isPremium, deckCount: decks.count) else {
-                blockedJobID = job.id
                 continue
             }
             if !subscriptions.isPremium && generated.cards.count > EntitlementRules.freeCardLimitPerDeck {
-                blockedJobID = job.id
                 continue
             }
 
@@ -316,7 +312,6 @@ struct AIImportQueueView: View {
             do {
                 try modelContext.save()
                 await queue.remove(job.id)
-                blockedJobID = nil
             } catch {
                 errorMessage = "The generated deck could not be saved."
                 return

@@ -3,6 +3,8 @@ import Foundation
 /// Serializes on-device AI work so a user can submit several documents without
 /// competing Foundation Models or LiteRT sessions. Jobs are processed in order.
 actor AIImportQueue {
+    static let shared = AIImportQueue()
+
     struct Job: Identifiable, Sendable, Hashable {
         enum State: Sendable, Hashable {
             case queued
@@ -38,13 +40,20 @@ actor AIImportQueue {
         inputs.map { enqueue(name: $0.name, source: $0.source) }
     }
 
-    func snapshot() -> [Job] {
-        jobs
-    }
+    func snapshot() -> [Job] { jobs }
 
     func pendingCount() -> Int {
         jobs.reduce(into: 0) { count, job in
             if case .queued = job.state { count += 1 }
+        }
+    }
+
+    func activeCount() -> Int {
+        jobs.reduce(into: 0) { count, job in
+            switch job.state {
+            case .queued, .processing: count += 1
+            case .completed, .failed: break
+            }
         }
     }
 
@@ -76,9 +85,7 @@ actor AIImportQueue {
         }
     }
 
-    func remove(_ id: UUID) {
-        jobs.removeAll { $0.id == id }
-    }
+    func remove(_ id: UUID) { jobs.removeAll { $0.id == id } }
 
     func clearFinished() {
         jobs.removeAll {

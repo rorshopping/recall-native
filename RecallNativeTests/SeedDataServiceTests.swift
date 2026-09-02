@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 import Testing
 @testable import RecallNative
@@ -62,6 +63,11 @@ struct SeedDataServiceTests {
         let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
         let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = ModelContext(container)
+
+        let previousHistory = ReviewHistoryStore.exportValues()
+        defer { ReviewHistoryStore.replace(with: previousHistory.reduce(into: [Date: Int]()) { result, entry in if let date = ReviewHistoryStore.date(from: entry.key) { result[date] = entry.value } }) }
+        ReviewHistoryStore.replace(with: [Date(timeIntervalSince1970: 1_756_000_000): 7])
+
         let customDeck = Deck(name: "My Deck")
         let customCard = Flashcard(question: "Custom", answer: "Answer", deck: customDeck)
         customDeck.cards.append(customCard)
@@ -79,5 +85,6 @@ struct SeedDataServiceTests {
         #expect(cards.count == 6)
         #expect(!cards.contains(where: { $0.question == "Custom" }))
         #expect(reviews.isEmpty)
+        #expect(ReviewHistoryStore.load().isEmpty)
     }
 }

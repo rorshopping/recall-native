@@ -9,7 +9,7 @@ struct ConfettiView: View {
     var body: some View {
         ZStack {
             if fire > 0 {
-                ForEach(0..<28, id: \ .self) { index in
+                ForEach(0..<28, id: \.self) { index in
                     ConfettiParticle(index: index, seed: burstID)
                 }
             }
@@ -28,24 +28,19 @@ private struct ConfettiParticle: View {
     @State private var progress = 0.0
 
     private var angle: Double {
-        let values = seed.uuid.0
-        let raw = Int(values) + index * 47
-        return Double(abs(raw % 360))
+        Double(abs(Int(seed.uuid.0) + index * 47) % 360)
     }
 
     private var distance: Double {
-        let values = seed.uuid.1
-        return 90 + Double(abs(Int(values) + index * 23) % 150)
+        90 + Double(abs(Int(seed.uuid.1) + index * 23) % 150)
     }
 
     private var size: CGFloat {
-        let values = seed.uuid.2
-        return CGFloat(5 + abs(Int(values) + index * 11) % 7)
+        CGFloat(5 + abs(Int(seed.uuid.2) + index * 11) % 7)
     }
 
     private var rotation: Double {
-        let values = seed.uuid.3
-        return Double(Int(values) + index * 31) * 8
+        Double(Int(seed.uuid.3) + index * 31) * 8
     }
 
     var body: some View {
@@ -64,18 +59,5 @@ private struct ConfettiParticle: View {
                     progress = 1
                 }
             }
-    }
-}
-
-private extension UUID {
-    var uuid: (UInt8, UInt8, UInt8, UInt8) {
-        withUnsafeBytes { bytes in
-            (
-                bytes[0],
-                bytes[1],
-                bytes[2],
-                bytes[3]
-            )
-        }
     }
 }

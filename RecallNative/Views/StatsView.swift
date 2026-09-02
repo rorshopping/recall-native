@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct StatsView: View {
-    @Query(sort: \ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
+    @Query(sort: \\ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
     @Query private var cards: [Flashcard]
     @Query private var decks: [Deck]
     @AppStorage("dailyGoal") private var dailyGoal = 20
@@ -32,7 +32,7 @@ struct StatsView: View {
         return Int((maturity / Double(cards.count) * 100).rounded())
     }
     private var dueCount: Int { cards.filter { !$0.isNew && $0.isDue }.count }
-    private var newCount: Int { cards.filter(\.isNew).count }
+    private var newCount: Int { cards.filter(\\.isNew).count }
     private var week: [(label: String, count: Int, today: Bool)] {
         (0..<7).reversed().map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: .now) ?? .now
@@ -52,35 +52,54 @@ struct StatsView: View {
                                 HStack(spacing: 10) {
                                     Text("🔥").font(.title2)
                                     VStack(alignment: .leading) {
-                                        Text("\(currentStreak)").font(.title.bold())
+                                        Text("\\(currentStreak)").font(.title.bold())
                                         Text("day streak").font(.caption).foregroundStyle(.secondary)
                                     }
                                 }
-                                Text(streakAtRisk ? "Study today to keep it 🔥" : "\(newCount) new cards").font(.caption.weight(.semibold)).foregroundStyle(streakAtRisk ? .orange : .secondary)
+                                Text(streakAtRisk ? "Study today to keep it 🔥" : "\\(newCount) new cards").font(.caption.weight(.semibold)).foregroundStyle(streakAtRisk ? .orange : .secondary)
                             }
                             Spacer(minLength: 0)
                         }
                     }
-                    Text(todayReviews >= dailyGoal ? "Daily goal complete 🎉" : "\(Int((Double(todayReviews) / Double(max(1, dailyGoal)) * 100).rounded()))% of your daily goal")
+                    Text(todayReviews >= dailyGoal ? "Daily goal complete 🎉" : "\\(Int((Double(todayReviews) / Double(max(1, dailyGoal)) * 100).rounded()))% of your daily goal")
                         .font(.caption.weight(.semibold)).foregroundStyle(todayReviews >= dailyGoal ? .green : .secondary).padding(.horizontal, 4)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        StatCard(title: "Due today", value: "\(dueCount)", icon: "clock.fill")
-                        StatCard(title: "Total cards", value: "\(cards.count)", icon: "rectangle.stack.fill")
-                        StatCard(title: "Reviewed", value: "\(metrics.total)", icon: "checkmark.circle.fill")
-                        StatCard(title: "Mastery", value: "\(mastery)%", icon: "brain.head.profile.fill")
+                        StatCard(title: "Due today", value: "\\(dueCount)", icon: "clock.fill")
+                        StatCard(title: "Total cards", value: "\\(cards.count)", icon: "rectangle.stack.fill")
+                        StatCard(title: "Reviewed", value: "\\(metrics.total)", icon: "checkmark.circle.fill")
+                        StatCard(title: "Mastery", value: "\\(mastery)%", icon: "brain.head.profile.fill")
+                    }
+                    Text("REVIEW QUALITY").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
+                    RecallCard {
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Recall quality").font(.headline)
+                                    Text("How your recent answers are distributed").font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text("\\(metrics.positiveRate)% positive")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(RecallTheme.accent)
+                            }
+                            QualityBar(label: "Again", count: metrics.ratingCounts[1, default: 0], total: metrics.total)
+                            QualityBar(label: "Hard", count: metrics.ratingCounts[2, default: 0], total: metrics.total)
+                            QualityBar(label: "Good", count: metrics.ratingCounts[3, default: 0], total: metrics.total)
+                            QualityBar(label: "Easy", count: metrics.ratingCounts[4, default: 0], total: metrics.total)
+                        }
                     }
                     Text("REVIEWS · LAST 7 DAYS").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
                     RecallCard { WeeklyBars(values: week) }
                     RecallCard {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Library").font(.headline)
-                            InfoRow(title: "Decks", value: "\(decks.count)", icon: "rectangle.stack")
+                            InfoRow(title: "Decks", value: "\\(decks.count)", icon: "rectangle.stack")
                             Divider()
-                            InfoRow(title: "New cards", value: "\(newCount)", icon: "sparkles")
+                            InfoRow(title: "New cards", value: "\\(newCount)", icon: "sparkles")
                             Divider()
-                            InfoRow(title: "Due cards", value: "\(dueCount)", icon: "clock")
+                            InfoRow(title: "Due cards", value: "\\(dueCount)", icon: "clock")
                             Divider()
-                            InfoRow(title: "Total reviews", value: "\(metrics.total)", icon: "arrow.clockwise")
+                            InfoRow(title: "Total reviews", value: "\\(metrics.total)", icon: "arrow.clockwise")
                         }
                     }
                     RecallCard {
@@ -107,16 +126,16 @@ private struct GoalRing: View {
         ZStack {
             Circle().stroke(.secondary.opacity(0.15), lineWidth: 10)
             Circle().trim(from: 0, to: progress).stroke(RecallTheme.accent, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90))
-            VStack(spacing: 0) { Text("\(value)").font(.title2.bold()); Text("of \(goal)").font(.caption2).foregroundStyle(.secondary) }
-        }.frame(width: 108, height: 108).accessibilityLabel("Reviews today: \(value) of \(goal)")
+            VStack(spacing: 0) { Text("\\(value)").font(.title2.bold()); Text("of \\(goal)").font(.caption2).foregroundStyle(.secondary) }
+        }.frame(width: 108, height: 108).accessibilityLabel("Reviews today: \\(value) of \\(goal)")
     }
 }
 private struct WeeklyBars: View {
     let values: [(label: String, count: Int, today: Bool)]
-    private var maxValue: Int { max(1, values.map(\.count).max() ?? 1) }
+    private var maxValue: Int { max(1, values.map(\\.count).max() ?? 1) }
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            ForEach(Array(values.enumerated()), id: \.offset) { _, item in
+            ForEach(Array(values.enumerated()), id: \\.offset) { _, item in
                 VStack(spacing: 6) {
                     Spacer(minLength: 0)
                     RoundedRectangle(cornerRadius: 6).fill(item.today ? RecallTheme.accent : .secondary.opacity(item.count > 0 ? 0.5 : 0.12)).frame(height: max(5, CGFloat(item.count) / CGFloat(maxValue) * 90))
@@ -129,6 +148,29 @@ private struct WeeklyBars: View {
 private struct StatCard: View {
     let title: String; let value: String; let icon: String
     var body: some View { RecallCard { VStack(alignment: .leading, spacing: 8) { Image(systemName: icon).foregroundStyle(RecallTheme.accent); Text(value).font(.title.bold()); Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, alignment: .leading) } }
+}
+private struct QualityBar: View {
+    let label: String
+    let count: Int
+    let total: Int
+
+    private var fraction: Double { total > 0 ? Double(count) / Double(total) : 0 }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(label).font(.caption.weight(.semibold)).frame(width: 42, alignment: .leading)
+            GeometryReader { proxy in
+                Capsule().fill(.secondary.opacity(0.12)).overlay(alignment: .leading) {
+                    Capsule().fill(RecallTheme.accent).frame(width: proxy.size.width * fraction)
+                }
+            }
+            .frame(height: 8)
+            Text("\\(count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 24, alignment: .trailing)
+        }
+        .frame(height: 18)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\\(label): \\(count) reviews")
+    }
 }
 private struct InfoRow: View {
     let title: String; let value: String; let icon: String

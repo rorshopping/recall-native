@@ -17,25 +17,27 @@ final class RecallNativeAppDelegate: NSObject, UIApplicationDelegate {
 private struct RecallBootstrapView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var decks: [Deck]
-    @State private var didAttemptSeed = false
+    @State private var didAttemptBootstrap = false
 
     var body: some View {
         RootView()
             .task {
-                guard !didAttemptSeed else { return }
-                didAttemptSeed = true
-                seedFreshStoreIfNeeded()
+                guard !didAttemptBootstrap else { return }
+                didAttemptBootstrap = true
+                bootstrapStore()
             }
     }
 
     @MainActor
-    private func seedFreshStoreIfNeeded() {
-        guard decks.isEmpty else { return }
-
+    private func bootstrapStore() {
         do {
-            try SeedDataService.insertSampleDeck(into: modelContext)
+            if decks.isEmpty {
+                try SeedDataService.insertSampleDeck(into: modelContext)
+            } else {
+                try SeedDataService.migrateLegacySampleDeckIfNeeded(context: modelContext)
+            }
         } catch {
-            assertionFailure("Failed to seed the sample deck: \(error)")
+            assertionFailure("Failed to bootstrap Recall data: \(error)")
         }
     }
 }

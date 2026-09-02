@@ -149,11 +149,36 @@ struct AIImportQueueView: View {
                 }
             }
             Spacer()
-            if case .processing = job.state {
+            switch job.state {
+            case .queued:
+                Button {
+                    Task {
+                        await queue.cancelQueued(job.id)
+                        await refresh()
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Remove \(job.name) from queue")
+            case .processing:
                 ProgressView()
-            }
-            if case .completed = job.state {
+            case .completed:
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            case .failed:
+                Button {
+                    Task {
+                        await queue.retry(job.id)
+                        await queue.startIfNeeded()
+                        await refresh()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(RecallTheme.accent)
+                .accessibilityLabel("Retry \(job.name)")
             }
         }
         .padding(.vertical, 4)

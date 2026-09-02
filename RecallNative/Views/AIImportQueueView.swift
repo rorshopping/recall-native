@@ -8,6 +8,7 @@ struct AIImportQueueView: View {
     @Query private var decks: [Deck]
     @StateObject private var subscriptions = SubscriptionService()
     @State private var jobs: [AIImportQueue.Job] = []
+    @State private var progress = AIImportQueue.ProgressSnapshot(completed: 0, total: 0, currentName: nil)
     @State private var showingImporter = false
     @State private var errorMessage: String?
     @State private var extractionMessage: String?
@@ -39,6 +40,11 @@ struct AIImportQueueView: View {
         }
     }
 
+    private var progressFraction: Double {
+        guard progress.total > 0 else { return 0 }
+        return min(max(Double(progress.completed) / Double(progress.total), 0), 1)
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -61,9 +67,27 @@ struct AIImportQueueView: View {
                         HStack {
                             Label("Processing", systemImage: "sparkles")
                             Spacer()
-                            Text("\(activeJobs.count)")
+                            Text("\(progress.completed) of \(progress.total)")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
+                        }
+
+                        if progress.total > 0 {
+                            VStack(alignment: .leading, spacing: 7) {
+                                ProgressView(value: progressFraction)
+                                    .tint(RecallTheme.accent)
+                                HStack {
+                                    Text(progress.currentName.map { "Working on \($0)" } ?? "Preparing next document")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text("\(Int(progressFraction * 100))%")
+                                        .font(.caption.monospacedDigit().weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 4)
                         }
 
                         ForEach(activeJobs) { job in
@@ -131,7 +155,7 @@ struct AIImportQueueView: View {
                 }
                 if !activeJobs.isEmpty {
                     ToolbarItem(placement: .principal) {
-                        Text("\(activeJobs.count) queued")
+                        Text("\(progress.completed) of \(progress.total)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(RecallTheme.accent)
                     }
@@ -284,9 +308,6 @@ struct AIImportQueueView: View {
                 }
                 Task {
                     _ = await queue.enqueue(contentsOf: inputs)
-                    // Register the continued-processing task before starting
-                    // inference so iOS can take over if the user backgrounds
-                    // the app while the first document is still processing.
                     if #available(iOS 26.0, *) {
                         AIImportBackgroundTask.shared.submitIfNeeded()
                     }
@@ -299,7 +320,11 @@ struct AIImportQueueView: View {
 
     private func refresh() async {
         let snapshot = await queue.snapshot()
-        await MainActor.run { jobs = snapshot }
+        let queueProgress = await queue.progressSnapshot()
+        await MainActor.run {
+            jobs = snapshot
+            progress = queueProgress
+        }
         await saveCompletedIfPossible(snapshot)
     }
 
@@ -329,5 +354,6 @@ struct AIImportQueueView: View {
             }
         }
         jobs = await queue.snapshot()
+        progress = await queue.progressSnapshot()
     }
 }

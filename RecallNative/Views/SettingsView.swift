@@ -105,7 +105,7 @@ struct SettingsView: View {
                     Button("Manage Subscription", systemImage: "creditcard") {
                         if let url = URL(string: "https://apps.apple.com/account/subscriptions") { openURL(url) }
                     }
-                    Text("39,99 € / year · auto-renewable. Payment is charged to your Apple ID. Cancel anytime in Settings → Apple Account → Subscriptions, at least 24 hours before renewal.")
+                    Text("Auto-renewable subscription. The current App Store price is shown above. Payment is charged to your Apple ID. Cancel anytime in Settings → Apple Account → Subscriptions, at least 24 hours before renewal.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -173,9 +173,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showingAIImport) { AIImportView() }
             .sheet(isPresented: $showingLicenses) { LicensesSheet() }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
-            .alert("Settings error", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-                Button("OK") { errorMessage = nil }
-            } message: { Text(errorMessage ?? "") }
+            .alert("Settings error", isPresented: Binding(get: { errorMessage != nil || subscriptions.purchaseError != nil }, set: { if !$0 { errorMessage = nil; subscriptions.clearError() } })) {
+                Button("OK") { errorMessage = nil; subscriptions.clearError() }
+            } message: { Text(errorMessage ?? subscriptions.purchaseError ?? "") }
             .alert("Face ID / Touch ID unavailable", isPresented: $showingBiometricUnavailable) {
                 Button("OK") {}
             } message: {

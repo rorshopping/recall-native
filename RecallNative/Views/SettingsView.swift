@@ -51,7 +51,7 @@ struct SettingsView: View {
 
                 Section("Study") {
                     Picker("Daily goal", selection: $dailyGoal) {
-                        ForEach(dailyGoalOptions, id: \\.self) { goal in
+                        ForEach(dailyGoalOptions, id: \.self) { goal in
                             Text("\\(goal) cards").tag(goal)
                         }
                     }

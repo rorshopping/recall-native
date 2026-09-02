@@ -37,35 +37,35 @@ struct RootView: View {
     }
 
     var body: some View {
+        // iOS 26 ships a floating Liquid Glass tab bar as the only style on
+        // iPhone (per Apple's HIG). The legacy `.tabItem { Label(...)}.tag(...)`
+        // pattern still works but does not give SwiftUI enough structural
+        // information for the new tab bar — it falls back to a less correct
+        // layout. The new `Tab(_:systemImage:value:)` API lets the system
+        // lay out the Liquid Glass tab bar with full content underneath.
         TabView(selection: $selectedTab) {
-            HomeView(
-                onStartReview: { showingHomeReview = true },
-                onCreate: { selectedTab = .create }
-            )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Home", systemImage: "house.fill") }
-                .tag(RecallTab.home)
-            DecksView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Decks", systemImage: "tray.full") }
-                .tag(RecallTab.decks)
-            CreateView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Create", systemImage: "sparkles") }
-                .tag(RecallTab.create)
-            StatsView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
-                .tag(RecallTab.stats)
-            SettingsView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(RecallTab.settings)
+            Tab("Home", systemImage: "house.fill", value: RecallTab.home) {
+                HomeView(
+                    onStartReview: { showingHomeReview = true },
+                    onCreate: { selectedTab = .create }
+                )
+            }
+            Tab("Decks", systemImage: "tray.full", value: RecallTab.decks) {
+                DecksView()
+            }
+            Tab("Create", systemImage: "sparkles", value: RecallTab.create) {
+                CreateView()
+            }
+            Tab("Stats", systemImage: "chart.line.uptrend.xyaxis", value: RecallTab.stats) {
+                StatsView()
+            }
+            Tab("Settings", systemImage: "gearshape", value: RecallTab.settings) {
+                SettingsView()
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .tint(RecallTheme.accent)
         .preferredColorScheme(colorScheme)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .overlay {
             if lockState != .unlocked { lockOverlay }
         }

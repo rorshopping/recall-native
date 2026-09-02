@@ -164,14 +164,16 @@ private struct SaveDeckSheet: View {
                             Text("The free plan supports up to \(EntitlementRules.freeCardLimitPerDeck) cards per deck.").font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                } else if let deck = decks.first(where: { $0.id == selectedDeckID }) && !isPremium {
+                } else if let deck = decks.first(where: { $0.id == selectedDeckID }) {
+                    if !isPremium {
                     Section("Capacity") {
                         let remaining = max(0, EntitlementRules.freeCardLimitPerDeck - deck.cards.count)
                         Label("\(remaining) card slots remaining", systemImage: remaining >= generatedCount ? "checkmark.circle" : "exclamationmark.triangle")
-                            .foregroundStyle(remaining >= generatedCount ? .secondary : .orange)
+                            .foregroundStyle(remaining >= generatedCount ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
                         if remaining < generatedCount {
                             Text("This deck does not have enough free capacity for all generated cards.").font(.caption).foregroundStyle(.secondary)
                         }
+                    }
                     }
                 }
                 Section {

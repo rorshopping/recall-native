@@ -18,7 +18,6 @@
 		234AF32114D74E076A0E2AC2 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89887E488B29F7232CD90DF8 /* ReviewView.swift */; };
 		2F5F0EC3311E262F3A2AB5AA /* Deck.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB508974A515913664B3EC5 /* Deck.swift */; };
 		378FC009CCEEADD0C6B46D54 /* AdvancedAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A7F8E043CA6777AE2053A0 /* AdvancedAIService.swift */; };
-		408B3B5CCA7C1D70326E11FC /* EntitlementRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB03CA74CD87053C46120D3 /* EntitlementRules.swift */; };
 		6293C4914E57192AED4F6192 /* RecallNativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7B8E84130297DE52B2362E /* RecallNativeTests.swift */; };
 		713538A6DD65DF4BEFC98CD7 /* AIImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */; };
 		75F2840BCD4F171524589F19 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */; };
@@ -79,7 +78,6 @@
 		54ACF5887739C488957A86C6 /* EntitlementRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementRules.swift; sourceTree = "<group>"; };
 		58980CCCFA098CB4ACA1BD71 /* RecallNative.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RecallNative.entitlements; sourceTree = "<group>"; };
 		6549B5AD00E34A1D40A5722E /* DesignLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignLabView.swift; sourceTree = "<group>"; };
-		7BB03CA74CD87053C46120D3 /* EntitlementRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementRules.swift; sourceTree = "<group>"; };
 		89887E488B29F7232CD90DF8 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		AFB508974A515913664B3EC5 /* Deck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deck.swift; sourceTree = "<group>"; };
@@ -118,7 +116,6 @@
 				0E7EDF17FEC30D13260D778D /* DeckDetailView.swift */,
 				F706E1F960AB7E50FE62ABD0 /* DecksView.swift */,
 				6549B5AD00E34A1D40A5722E /* DesignLabView.swift */,
-				7BB03CA74CD87053C46120D3 /* EntitlementRules.swift */,
 				DFC878F70555CBE1FE4775CD /* HomeView.swift */,
 				22B86656F8B2BD5A6C2FC12F /* ImportLinkView.swift */,
 				FEA47EA1D6B4AE2B61D83547 /* OnboardingView.swift */,
@@ -317,7 +314,6 @@
 				B48F2357A2459B9CDE0C5FF0 /* DecksView.swift in Sources */,
 				217628C99D0ACE88021B5B95 /* DesignLabView.swift in Sources */,
 				C62074B5D1FC932D6942BED0 /* DocumentImportService.swift in Sources */,
-				408B3B5CCA7C1D70326E11FC /* EntitlementRules.swift in Sources */,
 				04ACD9D1591EF5CF7942A925 /* EntitlementRules.swift in Sources */,
 				0E5BEB8876ACE1199A70088C /* Flashcard.swift in Sources */,
 				0D746456A452F01CE98D448E /* HapticsService.swift in Sources */,

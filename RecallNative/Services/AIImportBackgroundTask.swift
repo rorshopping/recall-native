@@ -14,7 +14,6 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
 
     private let queue = AIImportQueue.shared
     private let lock = NSLock()
-    private var registered = false
     private var submitted = false
 
     private override init() {
@@ -42,29 +41,19 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         "\(Self.identifierContext).\(UUID().uuidString)"
     }
 
+    /// Registers one concrete task handler immediately before submitting its
+    /// corresponding request. Wildcard identifiers are intended to be
+    /// registered per concrete continued-processing task, not as one global
+    /// wildcard handler.
     @discardableResult
-    func register() -> Bool {
-        lock.lock()
-        if registered {
-            lock.unlock()
-            return true
-        }
-        lock.unlock()
-
-        let didRegister = BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifierPrefix, using: nil) { task in
+    private func registerConcreteTask(identifier: String) -> Bool {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
             guard let task = task as? BGContinuedProcessingTask else {
                 task.setTaskCompleted(success: false)
                 return
             }
             Self.shared.handle(task)
         }
-
-        lock.lock()
-        if didRegister {
-            registered = true
-        }
-        lock.unlock()
-        return didRegister
     }
 
     /// Called directly from a user action after files have been added or a
@@ -72,8 +61,6 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
     /// queue processing starts so iOS can continue the same workload if the app
     /// is backgrounded.
     func submitIfNeeded() {
-        guard register() else { return }
-
         lock.lock()
         guard !submitted else {
             lock.unlock()
@@ -82,8 +69,14 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         submitted = true
         lock.unlock()
 
+        let identifier = makeTaskIdentifier()
+        guard registerConcreteTask(identifier: identifier) else {
+            markSubmissionFinished()
+            return
+        }
+
         let request = BGContinuedProcessingTaskRequest(
-            identifier: makeTaskIdentifier(),
+            identifier: identifier,
             title: "Generating flashcards",
             subtitle: "Processing your AI inbox privately on device"
         )
@@ -94,9 +87,9 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
         // otherwise be lost, while the queue itself remains the fallback path.
         BGTaskScheduler.shared.submitTaskRequest(request) { [weak self] error in
             guard let self else { return }
-            self.lock.lock()
-            self.submitted = error == nil
-            self.lock.unlock()
+            if error != nil {
+                self.markSubmissionFinished()
+            }
         }
     }
 

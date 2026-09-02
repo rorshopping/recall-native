@@ -83,7 +83,6 @@ enum DeckImportService {
             ))
         }
         try context.save()
-        UsageMetricsStore.recordCreated(parsed.cards.count)
         return deck
     }
 

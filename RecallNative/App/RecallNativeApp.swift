@@ -3,9 +3,15 @@ import SwiftData
 
 @main
 struct RecallNativeApp: App {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     var body: some Scene {
         WindowGroup {
-            RootView()
+            if hasCompletedOnboarding {
+                RootView()
+            } else {
+                OnboardingView()
+            }
         }
         .modelContainer(for: [Deck.self, Flashcard.self, ReviewLog.self])
     }

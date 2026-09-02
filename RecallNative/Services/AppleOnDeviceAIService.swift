@@ -178,18 +178,16 @@ struct AppleOnDeviceAIService: Sendable {
     }
 
     private func chunkSource(_ source: String, model: SystemLanguageModel, systemPrompt: String) throws -> [String] {
-        let paragraphs = source.components(separatedBy: "\\n\\n").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let paragraphs = source.components(separatedBy: "\n\n").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         guard !paragraphs.isEmpty else { return [source] }
 
-        // Reserve room for instructions, the guided-generation schema, and the response.
-        // The schema itself consumes context, so keep the source deliberately below the hard limit.
         let sourceBudget = max(900, model.contextSize - 1_650)
         var chunks: [String] = []
         var current = ""
 
         for paragraph in paragraphs {
-            let candidate = current.isEmpty ? paragraph : current + "\\n\\n" + paragraph
-            let prompt = "SOURCE SECTION:\\n\(candidate)"
+            let candidate = current.isEmpty ? paragraph : current + "\n\n" + paragraph
+            let prompt = "SOURCE SECTION:\n\(candidate)"
             let tokens = model.tokenCount(for: systemPrompt) + model.tokenCount(for: prompt)
             if tokens <= sourceBudget {
                 current = candidate
@@ -201,7 +199,7 @@ struct AppleOnDeviceAIService: Sendable {
                 current = ""
             }
 
-            let paragraphTokens = model.tokenCount(for: "SOURCE SECTION:\\n\(paragraph)")
+            let paragraphTokens = model.tokenCount(for: "SOURCE SECTION:\n\(paragraph)")
             if paragraphTokens <= sourceBudget {
                 current = paragraph
             } else {
@@ -223,7 +221,7 @@ struct AppleOnDeviceAIService: Sendable {
         var current = ""
         for sentence in sentences {
             let candidate = current.isEmpty ? sentence : current + ". " + sentence
-            let tokens = model.tokenCount(for: "SOURCE SECTION:\\n\(candidate)") + model.tokenCount(for: systemPrompt)
+            let tokens = model.tokenCount(for: "SOURCE SECTION:\n\(candidate)") + model.tokenCount(for: systemPrompt)
             if tokens <= sourceBudget {
                 current = candidate
             } else {
@@ -243,11 +241,14 @@ struct AppleOnDeviceAIService: Sendable {
         while start < text.endIndex {
             let end = text.index(start, offsetBy: min(maxCharacters, text.distance(from: start, to: text.endIndex)), limitedBy: text.endIndex) ?? text.endIndex
             var chunk = String(text[start..<end])
-            while model.tokenCount(for: "SOURCE SECTION:\\n\(chunk)") + model.tokenCount(for: systemPrompt) > sourceBudget && chunk.count > 1_000 {
+            while model.tokenCount(for: "SOURCE SECTION:\n\(chunk)") + model.tokenCount(for: systemPrompt) > sourceBudget && chunk.count > 1_000 {
                 chunk = String(chunk.dropLast(500))
             }
             chunks.append(chunk)
-            start = end
+            // Advance by the actual emitted chunk, not the original estimated
+            // character window. This prevents data from being silently skipped
+            // when token validation forces the chunk to shrink.
+            start = text.index(start, offsetBy: chunk.count)
         }
         return chunks
     }

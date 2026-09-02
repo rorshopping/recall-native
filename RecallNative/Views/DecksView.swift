@@ -28,6 +28,8 @@ struct DecksView: View {
     }
 
     private var totalDue: Int { decks.reduce(0) { $0 + $1.dueCount } }
+    private var totalNewAvailable: Int { decks.reduce(0) { $0 + $1.newRemainingToday } }
+    private var totalStudyable: Int { totalDue + totalNewAvailable }
 
     var body: some View {
         NavigationStack {
@@ -37,11 +39,16 @@ struct DecksView: View {
                         HStack(spacing: 14) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Today").font(.headline)
-                                Text(totalDue == 0 ? "You're all caught up" : "\(totalDue) card\(totalDue == 1 ? "" : "s") due")
-                                    .font(.subheadline).foregroundStyle(.secondary)
+                                if totalStudyable == 0 {
+                                    Text("You're all caught up")
+                                        .font(.subheadline).foregroundStyle(.secondary)
+                                } else {
+                                    Text("\(totalStudyable) card\(totalStudyable == 1 ? "" : "s") ready")
+                                        .font(.subheadline).foregroundStyle(.secondary)
+                                }
                             }
                             Spacer()
-                            if totalDue > 0 {
+                            if totalStudyable > 0 {
                                 Button("Study") { showingStudyAll = true }
                                     .buttonStyle(.borderedProminent)
                                     .controlSize(.small)
@@ -94,9 +101,15 @@ struct DeckRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(deck.name).font(.headline)
                 Text("\(deck.cards.count) cards").font(.subheadline).foregroundStyle(.secondary)
-                if deck.dueCount > 0 {
-                    Text("\(deck.dueCount) due").font(.caption.weight(.medium)).foregroundStyle(RecallTheme.accent)
+                HStack(spacing: 6) {
+                    if deck.dueCount > 0 {
+                        Text("\(deck.dueCount) due").font(.caption.weight(.medium))
+                    }
+                    if deck.newRemainingToday > 0 {
+                        Text("\(deck.newRemainingToday) new").font(.caption.weight(.medium))
+                    }
                 }
+                .foregroundStyle(RecallTheme.accent)
             }
             Spacer()
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)

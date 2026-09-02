@@ -23,9 +23,12 @@ final class AIImportBackgroundTask: NSObject, @unchecked Sendable {
 
         func finish(_ task: BGContinuedProcessingTask, success: Bool) {
             lock.lock()
-            defer { lock.unlock() }
-            guard !didComplete else { return }
+            guard !didComplete else {
+                lock.unlock()
+                return
+            }
             didComplete = true
+            lock.unlock()
             task.setTaskCompleted(success: success)
         }
     }

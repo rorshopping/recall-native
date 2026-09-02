@@ -1,0 +1,609 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		041C15F5D27CC2BF13C8AF38 /* BiometricLockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38F6DB9722B6393CDD5E1233 /* BiometricLockService.swift */; };
+		0421AD069665DDDEF6995E3C /* RecallNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF439432690A0BCCB2E71BB1 /* RecallNativeApp.swift */; };
+		04ACD9D1591EF5CF7942A925 /* EntitlementRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54ACF5887739C488957A86C6 /* EntitlementRules.swift */; };
+		05E31DDB6290EDF80078B25C /* OnDeviceAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC18D3AB0DD47A1620E98A02 /* OnDeviceAIService.swift */; };
+		060B2C2A6AC755C6BE185420 /* RecallLiteRT in Frameworks */ = {isa = PBXBuildFile; productRef = BD31D7A07B476F0B6800C75C /* RecallLiteRT */; };
+		0D746456A452F01CE98D448E /* HapticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6183A0858A3B83321B08CC /* HapticsService.swift */; };
+		0E5BEB8876ACE1199A70088C /* Flashcard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 031C2F4D0B021EC0495E1DA6 /* Flashcard.swift */; };
+		217628C99D0ACE88021B5B95 /* DesignLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6549B5AD00E34A1D40A5722E /* DesignLabView.swift */; };
+		234AF32114D74E076A0E2AC2 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89887E488B29F7232CD90DF8 /* ReviewView.swift */; };
+		2F5F0EC3311E262F3A2AB5AA /* Deck.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB508974A515913664B3EC5 /* Deck.swift */; };
+		378FC009CCEEADD0C6B46D54 /* AdvancedAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A7F8E043CA6777AE2053A0 /* AdvancedAIService.swift */; };
+		6293C4914E57192AED4F6192 /* RecallNativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7B8E84130297DE52B2362E /* RecallNativeTests.swift */; };
+		713538A6DD65DF4BEFC98CD7 /* AIImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */; };
+		75F2840BCD4F171524589F19 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */; };
+		775FD6BEF8742C08EDBB6A40 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D278BFC610A391DC6568385E /* SettingsView.swift */; };
+		7E5CE5A2DF3777182D6B2893 /* ICloudSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */; };
+		8112F756F8A93B82760A3EC3 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C70B608E0E98E02865DD83 /* RootView.swift */; };
+		811977D085FAB0F1321F9D3E /* EntitlementRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D9E8EE40CE20DE1D1258B7 /* EntitlementRulesTests.swift */; };
+		8485CB66CB1815A664EB2F43 /* DeckImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9EA2C87BE1DA57BACFD3ACA /* DeckImportService.swift */; };
+		85AFBAEEB39A27535EDF8EE6 /* ReviewLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 009AD96D861D05CD22422C70 /* ReviewLog.swift */; };
+		92983EE6184A573DD9EF7DA7 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022F42BFF60064E8D780D07A /* SubscriptionService.swift */; };
+		99B38AB73DA55BD81868C386 /* ImportLinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22B86656F8B2BD5A6C2FC12F /* ImportLinkView.swift */; };
+		9F3AC1E5F21C767CFF627E62 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281716E4A5D314CFC50A211D /* PaywallView.swift */; };
+		A894C1AA6A6B73A0F9628ECD /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA47EA1D6B4AE2B61D83547 /* OnboardingView.swift */; };
+		AD870ABF43B6790888EB986C /* SpacedRepetitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */; };
+		AD9270E334B68049C5A782F4 /* LiteRTModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5C2A09E6D8FBE7C608759D /* LiteRTModelStore.swift */; };
+		B48F2357A2459B9CDE0C5FF0 /* DecksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F706E1F960AB7E50FE62ABD0 /* DecksView.swift */; };
+		C62074B5D1FC932D6942BED0 /* DocumentImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB488ABEAB77A684A17ED00 /* DocumentImportService.swift */; };
+		CE6298AF073EECE267DD8AD0 /* BackupCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB8D34D666DE6EEF242928CB /* BackupCompatibilityTests.swift */; };
+		D174FE7F00C671F7C73FA6C1 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC45D6F7273015A088D9D0 /* BackupService.swift */; };
+		DE7D97E8F83742D285453425 /* SpacedRepetitionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423DDE5C295D963F5581F717 /* SpacedRepetitionServiceTests.swift */; };
+		DF96E5090623E945C590CE99 /* RecallTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AB359AA7ACDF07D486F837A /* RecallTheme.swift */; };
+		EE038ED72B7C79F3E1F3384B /* OnDeviceAISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1509B06EFE7B47CE2E16994 /* OnDeviceAISettingsView.swift */; };
+		EE6586B79B4839EE6EE1942C /* CreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303DB4EE3F0A03D203B9E8B4 /* CreateView.swift */; };
+		FEF9E2DDAA3550F81F1CADF8 /* DeckDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7EDF17FEC30D13260D778D /* DeckDetailView.swift */; };
+		FFB2E82362783575C6394445 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFC878F70555CBE1FE4775CD /* HomeView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		897EE32A63A1699140D9C6D3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 759DB7B1BE10F58B0F38E690 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F403CA105DCE3B132B0E6492;
+			remoteInfo = RecallNative;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		009AD96D861D05CD22422C70 /* ReviewLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewLog.swift; sourceTree = "<group>"; };
+		022F42BFF60064E8D780D07A /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
+		031C2F4D0B021EC0495E1DA6 /* Flashcard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Flashcard.swift; sourceTree = "<group>"; };
+		0CB488ABEAB77A684A17ED00 /* DocumentImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentImportService.swift; sourceTree = "<group>"; };
+		0E7EDF17FEC30D13260D778D /* DeckDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckDetailView.swift; sourceTree = "<group>"; };
+		15C70B608E0E98E02865DD83 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		17DC45D6F7273015A088D9D0 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
+		1AB359AA7ACDF07D486F837A /* RecallTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallTheme.swift; sourceTree = "<group>"; };
+		1F5C2A09E6D8FBE7C608759D /* LiteRTModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiteRTModelStore.swift; sourceTree = "<group>"; };
+		20D9E8EE40CE20DE1D1258B7 /* EntitlementRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementRulesTests.swift; sourceTree = "<group>"; };
+		22B86656F8B2BD5A6C2FC12F /* ImportLinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportLinkView.swift; sourceTree = "<group>"; };
+		24A7F8E043CA6777AE2053A0 /* AdvancedAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedAIService.swift; sourceTree = "<group>"; };
+		281716E4A5D314CFC50A211D /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		303DB4EE3F0A03D203B9E8B4 /* CreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateView.swift; sourceTree = "<group>"; };
+		36F1AC2B9CA32665E2C40841 /* RecallNativeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RecallNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		38F6DB9722B6393CDD5E1233 /* BiometricLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricLockService.swift; sourceTree = "<group>"; };
+		423DDE5C295D963F5581F717 /* SpacedRepetitionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacedRepetitionServiceTests.swift; sourceTree = "<group>"; };
+		46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncService.swift; sourceTree = "<group>"; };
+		541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIImportView.swift; sourceTree = "<group>"; };
+		54ACF5887739C488957A86C6 /* EntitlementRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementRules.swift; sourceTree = "<group>"; };
+		6549B5AD00E34A1D40A5722E /* DesignLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignLabView.swift; sourceTree = "<group>"; };
+		89887E488B29F7232CD90DF8 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+		975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		AFB508974A515913664B3EC5 /* Deck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deck.swift; sourceTree = "<group>"; };
+		BA32126A2EE739A3D6015F18 /* RecallNative.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RecallNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB8D34D666DE6EEF242928CB /* BackupCompatibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupCompatibilityTests.swift; sourceTree = "<group>"; };
+		CC6183A0858A3B83321B08CC /* HapticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsService.swift; sourceTree = "<group>"; };
+		CF439432690A0BCCB2E71BB1 /* RecallNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallNativeApp.swift; sourceTree = "<group>"; };
+		D1509B06EFE7B47CE2E16994 /* OnDeviceAISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceAISettingsView.swift; sourceTree = "<group>"; };
+		D278BFC610A391DC6568385E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D9EA2C87BE1DA57BACFD3ACA /* DeckImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeckImportService.swift; sourceTree = "<group>"; };
+		DFC878F70555CBE1FE4775CD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacedRepetitionService.swift; sourceTree = "<group>"; };
+		EE7B8E84130297DE52B2362E /* RecallNativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallNativeTests.swift; sourceTree = "<group>"; };
+		F706E1F960AB7E50FE62ABD0 /* DecksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecksView.swift; sourceTree = "<group>"; };
+		FC18D3AB0DD47A1620E98A02 /* OnDeviceAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceAIService.swift; sourceTree = "<group>"; };
+		FEA47EA1D6B4AE2B61D83547 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5D03CFA13E9011566F657B0E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				060B2C2A6AC755C6BE185420 /* RecallLiteRT in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1D0995BF22337D49EE4B3298 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */,
+				303DB4EE3F0A03D203B9E8B4 /* CreateView.swift */,
+				0E7EDF17FEC30D13260D778D /* DeckDetailView.swift */,
+				F706E1F960AB7E50FE62ABD0 /* DecksView.swift */,
+				6549B5AD00E34A1D40A5722E /* DesignLabView.swift */,
+				DFC878F70555CBE1FE4775CD /* HomeView.swift */,
+				22B86656F8B2BD5A6C2FC12F /* ImportLinkView.swift */,
+				FEA47EA1D6B4AE2B61D83547 /* OnboardingView.swift */,
+				D1509B06EFE7B47CE2E16994 /* OnDeviceAISettingsView.swift */,
+				281716E4A5D314CFC50A211D /* PaywallView.swift */,
+				89887E488B29F7232CD90DF8 /* ReviewView.swift */,
+				15C70B608E0E98E02865DD83 /* RootView.swift */,
+				D278BFC610A391DC6568385E /* SettingsView.swift */,
+				975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		29F2E7A2BC997A5BE4E02679 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				CF439432690A0BCCB2E71BB1 /* RecallNativeApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		61CF26A39440B14D1A82E0C0 /* RecallNative */ = {
+			isa = PBXGroup;
+			children = (
+				29F2E7A2BC997A5BE4E02679 /* App */,
+				B87645251E0C05CE8ABF03C1 /* Models */,
+				FE294F2ABA2A04A5B32F529E /* Services */,
+				AE24E5B794652513B9585D28 /* Theme */,
+				1D0995BF22337D49EE4B3298 /* Views */,
+			);
+			path = RecallNative;
+			sourceTree = "<group>";
+		};
+		6240D07D7767A05E18B8B29E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BA32126A2EE739A3D6015F18 /* RecallNative.app */,
+				36F1AC2B9CA32665E2C40841 /* RecallNativeTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6304F6E023F06A998F96E9D9 /* RecallNativeTests */ = {
+			isa = PBXGroup;
+			children = (
+				CB8D34D666DE6EEF242928CB /* BackupCompatibilityTests.swift */,
+				20D9E8EE40CE20DE1D1258B7 /* EntitlementRulesTests.swift */,
+				EE7B8E84130297DE52B2362E /* RecallNativeTests.swift */,
+				423DDE5C295D963F5581F717 /* SpacedRepetitionServiceTests.swift */,
+			);
+			path = RecallNativeTests;
+			sourceTree = "<group>";
+		};
+		AE24E5B794652513B9585D28 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				1AB359AA7ACDF07D486F837A /* RecallTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		B87645251E0C05CE8ABF03C1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AFB508974A515913664B3EC5 /* Deck.swift */,
+				031C2F4D0B021EC0495E1DA6 /* Flashcard.swift */,
+				009AD96D861D05CD22422C70 /* ReviewLog.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D258B117739252EDAA7F96D2 = {
+			isa = PBXGroup;
+			children = (
+				61CF26A39440B14D1A82E0C0 /* RecallNative */,
+				6304F6E023F06A998F96E9D9 /* RecallNativeTests */,
+				6240D07D7767A05E18B8B29E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FE294F2ABA2A04A5B32F529E /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				24A7F8E043CA6777AE2053A0 /* AdvancedAIService.swift */,
+				17DC45D6F7273015A088D9D0 /* BackupService.swift */,
+				38F6DB9722B6393CDD5E1233 /* BiometricLockService.swift */,
+				D9EA2C87BE1DA57BACFD3ACA /* DeckImportService.swift */,
+				0CB488ABEAB77A684A17ED00 /* DocumentImportService.swift */,
+				54ACF5887739C488957A86C6 /* EntitlementRules.swift */,
+				CC6183A0858A3B83321B08CC /* HapticsService.swift */,
+				46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */,
+				1F5C2A09E6D8FBE7C608759D /* LiteRTModelStore.swift */,
+				FC18D3AB0DD47A1620E98A02 /* OnDeviceAIService.swift */,
+				ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */,
+				022F42BFF60064E8D780D07A /* SubscriptionService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BD9688FCA8704DD30AA2EDE7 /* RecallNativeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D39A116EEF47E5850D30E46C /* Build configuration list for PBXNativeTarget "RecallNativeTests" */;
+			buildPhases = (
+				21545241A77645CFEFD5A199 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B819EECDF76B8B9338E938B7 /* PBXTargetDependency */,
+			);
+			name = RecallNativeTests;
+			packageProductDependencies = (
+			);
+			productName = RecallNativeTests;
+			productReference = 36F1AC2B9CA32665E2C40841 /* RecallNativeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F403CA105DCE3B132B0E6492 /* RecallNative */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FECCDBF69AFCA32C51DEC84 /* Build configuration list for PBXNativeTarget "RecallNative" */;
+			buildPhases = (
+				095E86B82E1512E2E8254FEF /* Sources */,
+				5D03CFA13E9011566F657B0E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RecallNative;
+			packageProductDependencies = (
+				BD31D7A07B476F0B6800C75C /* RecallLiteRT */,
+			);
+			productName = RecallNative;
+			productReference = BA32126A2EE739A3D6015F18 /* RecallNative.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		759DB7B1BE10F58B0F38E690 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					BD9688FCA8704DD30AA2EDE7 = {
+						DevelopmentTeam = AGYVQ59A5S;
+						ProvisioningStyle = Manual;
+					};
+					F403CA105DCE3B132B0E6492 = {
+						DevelopmentTeam = AGYVQ59A5S;
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = CEEF3BEE372D5CF63309A0B4 /* Build configuration list for PBXProject "RecallNative" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D258B117739252EDAA7F96D2;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CFC1D073F489640AE4E387CE /* XCRemoteSwiftPackageReference "recall-ondevice-ai" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 6240D07D7767A05E18B8B29E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F403CA105DCE3B132B0E6492 /* RecallNative */,
+				BD9688FCA8704DD30AA2EDE7 /* RecallNativeTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		095E86B82E1512E2E8254FEF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				713538A6DD65DF4BEFC98CD7 /* AIImportView.swift in Sources */,
+				378FC009CCEEADD0C6B46D54 /* AdvancedAIService.swift in Sources */,
+				D174FE7F00C671F7C73FA6C1 /* BackupService.swift in Sources */,
+				041C15F5D27CC2BF13C8AF38 /* BiometricLockService.swift in Sources */,
+				EE6586B79B4839EE6EE1942C /* CreateView.swift in Sources */,
+				2F5F0EC3311E262F3A2AB5AA /* Deck.swift in Sources */,
+				FEF9E2DDAA3550F81F1CADF8 /* DeckDetailView.swift in Sources */,
+				8485CB66CB1815A664EB2F43 /* DeckImportService.swift in Sources */,
+				B48F2357A2459B9CDE0C5FF0 /* DecksView.swift in Sources */,
+				217628C99D0ACE88021B5B95 /* DesignLabView.swift in Sources */,
+				C62074B5D1FC932D6942BED0 /* DocumentImportService.swift in Sources */,
+				04ACD9D1591EF5CF7942A925 /* EntitlementRules.swift in Sources */,
+				0E5BEB8876ACE1199A70088C /* Flashcard.swift in Sources */,
+				0D746456A452F01CE98D448E /* HapticsService.swift in Sources */,
+				FFB2E82362783575C6394445 /* HomeView.swift in Sources */,
+				7E5CE5A2DF3777182D6B2893 /* ICloudSyncService.swift in Sources */,
+				99B38AB73DA55BD81868C386 /* ImportLinkView.swift in Sources */,
+				AD9270E334B68049C5A782F4 /* LiteRTModelStore.swift in Sources */,
+				05E31DDB6290EDF80078B25C /* OnDeviceAIService.swift in Sources */,
+				EE038ED72B7C79F3E1F3384B /* OnDeviceAISettingsView.swift in Sources */,
+				A894C1AA6A6B73A0F9628ECD /* OnboardingView.swift in Sources */,
+				9F3AC1E5F21C767CFF627E62 /* PaywallView.swift in Sources */,
+				0421AD069665DDDEF6995E3C /* RecallNativeApp.swift in Sources */,
+				DF96E5090623E945C590CE99 /* RecallTheme.swift in Sources */,
+				85AFBAEEB39A27535EDF8EE6 /* ReviewLog.swift in Sources */,
+				234AF32114D74E076A0E2AC2 /* ReviewView.swift in Sources */,
+				8112F756F8A93B82760A3EC3 /* RootView.swift in Sources */,
+				775FD6BEF8742C08EDBB6A40 /* SettingsView.swift in Sources */,
+				AD870ABF43B6790888EB986C /* SpacedRepetitionService.swift in Sources */,
+				75F2840BCD4F171524589F19 /* StatsView.swift in Sources */,
+				92983EE6184A573DD9EF7DA7 /* SubscriptionService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		21545241A77645CFEFD5A199 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE6298AF073EECE267DD8AD0 /* BackupCompatibilityTests.swift in Sources */,
+				811977D085FAB0F1321F9D3E /* EntitlementRulesTests.swift in Sources */,
+				6293C4914E57192AED4F6192 /* RecallNativeTests.swift in Sources */,
+				DE7D97E8F83742D285453425 /* SpacedRepetitionServiceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B819EECDF76B8B9338E938B7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F403CA105DCE3B132B0E6492 /* RecallNative */;
+			targetProxy = 897EE32A63A1699140D9C6D3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		019B9325F3067CA337E925F7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.recalllabs.RecallNativeTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RecallNative.app/RecallNative";
+			};
+			name = Debug;
+		};
+		3DA160064069C29A3C55B9EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Recall Native";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.recalllabs.recallnative;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9B6AFFD830BE6422ACDC4B48 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.recalllabs.RecallNativeTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RecallNative.app/RecallNative";
+			};
+			name = Release;
+		};
+		A6E24E5F1B6FBF27FAEE3276 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = AGYVQ59A5S;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		D353385111B5729B36E7A1B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Recall Native";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.recalllabs.recallnative;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FCE84BF98C10FAC0A5F23EA2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = AGYVQ59A5S;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6FECCDBF69AFCA32C51DEC84 /* Build configuration list for PBXNativeTarget "RecallNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D353385111B5729B36E7A1B1 /* Debug */,
+				3DA160064069C29A3C55B9EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CEEF3BEE372D5CF63309A0B4 /* Build configuration list for PBXProject "RecallNative" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A6E24E5F1B6FBF27FAEE3276 /* Debug */,
+				FCE84BF98C10FAC0A5F23EA2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D39A116EEF47E5850D30E46C /* Build configuration list for PBXNativeTarget "RecallNativeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				019B9325F3067CA337E925F7 /* Debug */,
+				9B6AFFD830BE6422ACDC4B48 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CFC1D073F489640AE4E387CE /* XCRemoteSwiftPackageReference "recall-ondevice-ai" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/rorshopping/recall-ondevice-ai.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.1.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BD31D7A07B476F0B6800C75C /* RecallLiteRT */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CFC1D073F489640AE4E387CE /* XCRemoteSwiftPackageReference "recall-ondevice-ai" */;
+			productName = RecallLiteRT;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 759DB7B1BE10F58B0F38E690 /* Project object */;
+}

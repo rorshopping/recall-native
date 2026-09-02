@@ -9,6 +9,9 @@ struct SeedDataServiceTests {
         let schema = Schema([Deck.self, Flashcard.self, ReviewLog.self])
         let container = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = ModelContext(container)
+        let previousTotalCreated = UsageMetricsStore.totalCreated
+        UsageMetricsStore.replaceTotalCreated(37)
+        defer { UsageMetricsStore.replaceTotalCreated(previousTotalCreated) }
 
         try SeedDataService.insertSampleDeck(into: context)
 
@@ -24,6 +27,7 @@ struct SeedDataServiceTests {
             "Conjugate: yo (to eat)",
             "What is 'el perro'?"
         ])
+        #expect(UsageMetricsStore.totalCreated == 37)
     }
 
     @Test @MainActor

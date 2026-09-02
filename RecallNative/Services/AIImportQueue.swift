@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// Serializes and persists on-device AI work so a user can submit several
@@ -17,13 +18,19 @@ actor AIImportQueue {
         let id: UUID
         let name: String
         let source: String
+        let fingerprint: String
         var state: State
 
-        init(id: UUID = UUID(), name: String, source: String) {
+        init(id: UUID = UUID(), name: String, source: String, fingerprint: String? = nil) {
             self.id = id
             self.name = name
             self.source = source
+            self.fingerprint = fingerprint ?? Self.makeFingerprint(source)
             self.state = .queued
+        }
+
+        private static func makeFingerprint(_ source: String) -> String {
+            SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
         }
     }
 
@@ -42,20 +49,36 @@ actor AIImportQueue {
         jobs = Self.loadJobs()
     }
 
-    func enqueue(name: String, source: String) -> UUID {
-        let job = Job(name: name, source: source)
+    func enqueue(name: String, source: String) -> UUID? {
+        let fingerprint = Self.fingerprint(source)
+        guard !jobs.contains(where: {
+            $0.fingerprint == fingerprint && Self.isActiveOrCompleted($0.state)
+        }) else {
+            return nil
+        }
+        let job = Job(name: name, source: source, fingerprint: fingerprint)
         jobs.append(job)
         persist()
         return job.id
     }
 
     func enqueue(contentsOf inputs: [(name: String, source: String)]) -> [UUID] {
-        let ids = inputs.map { input in
-            let job = Job(name: input.name, source: input.source)
+        var ids: [UUID] = []
+        var fingerprints = Set<String>()
+
+        for input in inputs {
+            let fingerprint = Self.fingerprint(input.source)
+            guard fingerprints.insert(fingerprint).inserted else { continue }
+            guard !jobs.contains(where: {
+                $0.fingerprint == fingerprint && Self.isActiveOrCompleted($0.state)
+            }) else { continue }
+
+            let job = Job(name: input.name, source: input.source, fingerprint: fingerprint)
             jobs.append(job)
-            return job.id
+            ids.append(job.id)
         }
-        persist()
+
+        if !ids.isEmpty { persist() }
         return ids
     }
 
@@ -193,6 +216,17 @@ actor AIImportQueue {
             }
         }
         persist()
+    }
+
+    private static func isActiveOrCompleted(_ state: Job.State) -> Bool {
+        switch state {
+        case .queued, .processing, .completed: return true
+        case .failed: return false
+        }
+    }
+
+    private static func fingerprint(_ source: String) -> String {
+        SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     private func persist() {

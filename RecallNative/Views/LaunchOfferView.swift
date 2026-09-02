@@ -16,15 +16,7 @@ struct LaunchOfferView: View {
     private let priceFallback = "39,99 €"
 
     private var hasEarnedValue: Bool {
-        let hasNonSampleDeck = decks.contains { deck in
-            deck.name != "Spanish Basics" && deck.name != "Spanish Basics — Sample"
-        }
-        let hasMultipleDecks = decks.count > 1
-        let hasEnoughCards = cards.count > 6
-        let hasEnoughReviews = reviews.count >= 3
-        let hasStudyHistory = !reviews.isEmpty || !ReviewHistoryStore.load().isEmpty
-        let hasCreationHistory = UsageMetricsStore.totalCreated > 6
-        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory || hasCreationHistory
+        LaunchOfferEligibility.hasEarnedValue(decks: decks, cards: cards, reviews: reviews)
     }
 
     private var shouldShow: Bool {

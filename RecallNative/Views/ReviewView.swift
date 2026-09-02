@@ -84,6 +84,22 @@ struct ReviewView: View {
             .frame(maxWidth: 760, maxHeight: .infinity)
             .contentShape(Rectangle())
             .onTapGesture { withAnimation(.snappy(duration: 0.25)) { revealed = true } }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 45)
+                    .onEnded { value in
+                        guard revealed else { return }
+                        let dx = value.translation.width
+                        let dy = value.translation.height
+                        if abs(dx) > abs(dy) {
+                            if dx > 70 { rate(2) }
+                            else if dx < -70 { rate(0) }
+                        } else {
+                            if dy < -70 { rate(3) }
+                            else if dy > 70 { rate(1) }
+                        }
+                    }
+            )
+            .accessibilityHint(revealed ? "Swipe right for Good, left for Again, up for Easy, or down for Hard." : "Tap to reveal the answer.")
 
             if revealed && !card.hint.isEmpty { Text("Hint: \(card.hint)").font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: 760, alignment: .leading) }
             if revealed && card.typeInAnswer { typeIn(card) }

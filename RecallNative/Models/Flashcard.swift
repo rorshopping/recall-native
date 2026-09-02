@@ -26,6 +26,8 @@ final class Flashcard {
     var easyCount: Int
     var lastReviewedAt: Date?
     var deck: Deck?
+    @Relationship(deleteRule: .cascade, inverse: \ReviewLog.card)
+    var reviewLogs: [ReviewLog]
 
     convenience init(question: String, answer: String, deck: Deck? = nil) {
         self.init(question: question, answer: answer, hint: "", tags: "", deck: deck)
@@ -55,6 +57,7 @@ final class Flashcard {
         self.easyCount = 0
         self.lastReviewedAt = nil
         self.deck = deck
+        self.reviewLogs = []
     }
 
     var isNew: Bool { state == "new" }

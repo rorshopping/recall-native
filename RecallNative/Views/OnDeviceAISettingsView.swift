@@ -84,7 +84,8 @@ struct OnDeviceAISettingsView: View {
     private func refresh() async {
         let store = LiteRTModelStore.shared
         let installed = await store.modelURL() != nil
-        let downloading = !installed && await store.hasActiveDownload()
+        let hasActive = await store.hasActiveDownload()
+        let downloading = !installed && hasActive
         await MainActor.run {
             isInstalled = installed
             isDownloading = downloading

@@ -103,7 +103,7 @@ enum DeckImportService {
             }
         case let array as [Any]:
             result = array.map { element in
-                guard let element, !(element is NSNull) else { return "" }
+                guard !(element is NSNull) else { return "" }
                 return javascriptString(element) ?? ""
             }.joined(separator: ",")
         case is NSNull:

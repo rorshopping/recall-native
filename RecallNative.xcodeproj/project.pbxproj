@@ -22,6 +22,7 @@
 		2F5F0EC3311E262F3A2AB5AA /* Deck.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB508974A515913664B3EC5 /* Deck.swift */; };
 		378FC009CCEEADD0C6B46D54 /* AdvancedAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A7F8E043CA6777AE2053A0 /* AdvancedAIService.swift */; };
 		3B83ED8AF7239CEE7C1953E6 /* RecallNativeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A6045A273CA271AE410D99 /* RecallNativeUITests.swift */; };
+		5E84D68C1F173047CFE7F849 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3BFDB8CE2C9C7D100C7C7338 /* Assets.xcassets */; };
 		6293C4914E57192AED4F6192 /* RecallNativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7B8E84130297DE52B2362E /* RecallNativeTests.swift */; };
 		6C0AC807A8E541BEA147FD90 /* ReviewMetricsActiveStreakTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71BA2D11BC99967CF4D318 /* ReviewMetricsActiveStreakTests.swift */; };
 		713538A6DD65DF4BEFC98CD7 /* AIImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541D9FEC5E3A6DBF5C04E513 /* AIImportView.swift */; };
@@ -93,6 +94,7 @@
 		303DB4EE3F0A03D203B9E8B4 /* CreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateView.swift; sourceTree = "<group>"; };
 		36F1AC2B9CA32665E2C40841 /* RecallNativeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RecallNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		38F6DB9722B6393CDD5E1233 /* BiometricLockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricLockService.swift; sourceTree = "<group>"; };
+		3BFDB8CE2C9C7D100C7C7338 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		423DDE5C295D963F5581F717 /* SpacedRepetitionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacedRepetitionServiceTests.swift; sourceTree = "<group>"; };
 		46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudSyncService.swift; sourceTree = "<group>"; };
 		4A4E6587803302BC76F9F22D /* ConfettiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfettiView.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 				FE294F2ABA2A04A5B32F529E /* Services */,
 				AE24E5B794652513B9585D28 /* Theme */,
 				1D0995BF22337D49EE4B3298 /* Views */,
+				3BFDB8CE2C9C7D100C7C7338 /* Assets.xcassets */,
 				58980CCCFA098CB4ACA1BD71 /* RecallNative.entitlements */,
 			);
 			path = RecallNative;
@@ -310,6 +313,7 @@
 			buildConfigurationList = 6FECCDBF69AFCA32C51DEC84 /* Build configuration list for PBXNativeTarget "RecallNative" */;
 			buildPhases = (
 				095E86B82E1512E2E8254FEF /* Sources */,
+				29CE08AF295181837ECDAE8C /* Resources */,
 				5D03CFA13E9011566F657B0E /* Frameworks */,
 			);
 			buildRules = (
@@ -371,6 +375,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		29CE08AF295181837ECDAE8C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E84D68C1F173047CFE7F849 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		095E86B82E1512E2E8254FEF /* Sources */ = {

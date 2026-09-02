@@ -12,6 +12,7 @@ struct DeckDetailView: View {
     @State private var showingDeckEditor = false
     @State private var showingDeleteDeck = false
     @State private var showingStudyAllConfirmation = false
+    @State private var showingNoCardsAlert = false
     @State private var studyAll = false
     @State private var cardSearch = ""
     @State private var cardSort: CardSort = .newest
@@ -62,9 +63,8 @@ struct DeckDetailView: View {
 
     private func studyDeck() {
         if deck.cards.isEmpty {
-            return
-        }
-        if deck.dueCount + deck.newRemainingToday > 0 {
+            showingNoCardsAlert = true
+        } else if deck.dueCount + deck.newRemainingToday > 0 {
             studyAll = false
             showingReview = true
         } else {
@@ -98,7 +98,7 @@ struct DeckDetailView: View {
                     }
                 }
 
-                if deck.dueCount + deck.newRemainingToday > 0 || !deck.cards.isEmpty {
+                if !deck.cards.isEmpty {
                     Button(action: studyDeck) {
                         Label("Study this deck", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
@@ -197,7 +197,7 @@ struct DeckDetailView: View {
                     Button("Add card", systemImage: canAddCard ? "plus" : "lock.fill") {
                         if canAddCard { showingEditor = true } else { showingPaywall = true }
                     }
-                    if deck.dueCount + deck.newRemainingToday > 0 || !deck.cards.isEmpty {
+                    if !deck.cards.isEmpty {
                         Button("Study deck", systemImage: "play.fill") { studyDeck() }
                     }
                     Divider()
@@ -220,10 +220,11 @@ struct DeckDetailView: View {
         } message: {
             Text("All \(deck.cards.count) cards are scheduled for later. Study them all now anyway?")
         }
-        .alert("No cards yet", isPresented: Binding(
-            get: { deck.cards.isEmpty && showingStudyAllConfirmation == false && false },
-            set: { _ in }
-        )) { }
+        .alert("No cards yet", isPresented: $showingNoCardsAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Add cards to this deck first.")
+        }
         .confirmationDialog("Delete this deck?", isPresented: $showingDeleteDeck, titleVisibility: .visible) {
             Button("Delete Deck", role: .destructive) {
                 modelContext.delete(deck)

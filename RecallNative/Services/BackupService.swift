@@ -16,28 +16,18 @@ struct RecallBackup: Codable {
     }
     struct ReviewRecord: Codable { let id: UUID; let reviewedAt: Date; let rating: Int; let cardID: UUID? }
     let version: Int; let exportedAt: Date; let decks: [DeckRecord]; let cards: [CardRecord]; let reviews: [ReviewRecord]
-    /// Daily totals from the original Recall `meta.history` object. These are aggregate-only and are intentionally not converted into fake card reviews.
     let history: [String: Int]
-    /// Aggregate cards-created count from the original Recall `meta.totalCreated` field.
     let totalCreated: Int
     fileprivate let importedHapticsEnabled: Bool?
 
     private struct LegacyDeck: Decodable { let id: UUID; let name: String; let emoji: String?; let createdAt: Double?; let newLimit: Int?; let newDay: String?; let newStudiedToday: Int?; let cards: [LegacyCard]? }
-    private struct LegacyCard: Decodable {
-        let id: UUID; let front: String; let back: String; let hint: String?; let tags: String?; let type: String?; let typeIn: Bool?; let media: LegacyMedia?
-        let ease: Double?; let interval: Int?; let reps: Int?; let lapses: Int?; let due: Double?; let lastReviewed: Double?; let state: String?; let step: Int?; let stats: LegacyStats?; let createdAt: Double?
-    }
+    private struct LegacyCard: Decodable { let id: UUID; let front: String; let back: String; let hint: String?; let tags: String?; let type: String?; let typeIn: Bool?; let media: LegacyMedia?; let ease: Double?; let interval: Int?; let reps: Int?; let lapses: Int?; let due: Double?; let lastReviewed: Double?; let state: String?; let step: Int?; let stats: LegacyStats?; let createdAt: Double? }
     private struct LegacyMedia: Decodable { let type: String; let uri: String }
     private struct LegacyStats: Decodable { let again: Int?; let hard: Int?; let good: Int?; let easy: Int? }
-    private struct LegacyMeta: Decodable {
-        let streak: Int?; let lastStudyDate: String?; let studiedToday: Int?; let totalReviewed: Int?; let totalCreated: Int?
-        let entitlement: [String: Bool]?; let iCloudEnabled: Bool?; let history: [String: Int]?; let hapticsEnabled: Bool?
-    }
+    private struct LegacyMeta: Decodable { let streak: Int?; let lastStudyDate: String?; let studiedToday: Int?; let totalReviewed: Int?; let totalCreated: Int?; let entitlement: [String: Bool]?; let iCloudEnabled: Bool?; let history: [String: Int]?; let hapticsEnabled: Bool? }
     private enum RootKeys: String, CodingKey { case version, schemaVersion, exportedAt, decks, cards, reviews, meta, hapticsEnabled, history, totalCreated }
 
-    init(version: Int, exportedAt: Date, decks: [DeckRecord], cards: [CardRecord], reviews: [ReviewRecord], history: [String:Int] = [:], totalCreated: Int = 0, hapticsEnabled: Bool? = nil) {
-        self.version=version; self.exportedAt=exportedAt; self.decks=decks; self.cards=cards; self.reviews=reviews; self.history=history; self.totalCreated=max(0,totalCreated); self.importedHapticsEnabled=hapticsEnabled
-    }
+    init(version: Int, exportedAt: Date, decks: [DeckRecord], cards: [CardRecord], reviews: [ReviewRecord], history: [String:Int] = [:], totalCreated: Int = 0, hapticsEnabled: Bool? = nil) { self.version=version; self.exportedAt=exportedAt; self.decks=decks; self.cards=cards; self.reviews=reviews; self.history=history; self.totalCreated=max(0,totalCreated); self.importedHapticsEnabled=hapticsEnabled }
     init(from decoder: Decoder) throws {
         let root=try decoder.container(keyedBy:RootKeys.self)
         if let version=try root.decodeIfPresent(Int.self,forKey:.version), let exportedAt=try root.decodeIfPresent(Date.self,forKey:.exportedAt), let decks=try root.decodeIfPresent([DeckRecord].self,forKey:.decks), let cards=try root.decodeIfPresent([CardRecord].self,forKey:.cards), let reviews=try root.decodeIfPresent([ReviewRecord].self,forKey:.reviews) {
@@ -61,8 +51,7 @@ enum BackupService {
     static func makeBackup(context: ModelContext) throws -> Data {
         let decks=try context.fetch(FetchDescriptor<Deck>()).map { RecallBackup.DeckRecord(id:$0.id,name:$0.name,emoji:$0.emoji,createdAt:$0.createdAt,newLimit:$0.newLimit,newDay:$0.newDay ?? "",newStudiedToday:$0.newStudiedToday) }
         let cards=try context.fetch(FetchDescriptor<Flashcard>()).compactMap { card -> RecallBackup.CardRecord? in
-            guard let deckID=card.deck?.id else { return nil }
-            return .init(id:card.id,question:card.question,answer:card.answer,hint:card.hint,tags:card.tags,type:card.type,typeInAnswer:card.typeInAnswer,mediaType:card.mediaType,mediaURI:card.mediaURI,createdAt:card.createdAt,dueAt:card.dueAt,interval:card.interval,ease:card.ease,repetitions:card.repetitions,state:card.state,step:card.step,lapses:card.lapses,againCount:card.againCount,hardCount:card.hardCount,goodCount:card.goodCount,easyCount:card.easyCount,lastReviewedAt:card.lastReviewedAt,deckID:deckID)
+            guard let deckID=card.deck?.id else { return nil }; return .init(id:card.id,question:card.question,answer:card.answer,hint:card.hint,tags:card.tags,type:card.type,typeInAnswer:card.typeInAnswer,mediaType:card.mediaType,mediaURI:card.mediaURI,createdAt:card.createdAt,dueAt:card.dueAt,interval:card.interval,ease:card.ease,repetitions:card.repetitions,state:card.state,step:card.step,lapses:card.lapses,againCount:card.againCount,hardCount:card.hardCount,goodCount:card.goodCount,easyCount:card.easyCount,lastReviewedAt:card.lastReviewedAt,deckID:deckID)
         }
         let reviews=try context.fetch(FetchDescriptor<ReviewLog>()).map { RecallBackup.ReviewRecord(id:$0.id,reviewedAt:$0.reviewedAt,rating:$0.rating,cardID:$0.card?.id) }
         let backup=RecallBackup(version:1,exportedAt:.now,decks:decks,cards:cards,reviews:reviews,history:ReviewHistoryStore.exportValues(),totalCreated:UsageMetricsStore.totalCreated,hapticsEnabled:UserDefaults.standard.object(forKey:"hapticsEnabled") as? Bool ?? true)
@@ -74,9 +63,8 @@ enum BackupService {
         guard Set(backup.decks.map(\.id)).count == backup.decks.count,Set(backup.cards.map(\.id)).count == backup.cards.count else { throw BackupError.duplicateIDs }; let deckIDs=Set(backup.decks.map(\.id)); guard backup.cards.allSatisfy({ deckIDs.contains($0.deckID) }) else { throw BackupError.orphanedCards }; let cardIDs=Set(backup.cards.map(\.id)); guard backup.reviews.allSatisfy({ $0.cardID == nil || cardIDs.contains($0.cardID!) }) else { throw BackupError.orphanedReviews }; guard backup.history.values.allSatisfy({ $0 >= 0 }) else { throw BackupError.invalidHistory }; guard backup.totalCreated >= 0 else { throw BackupError.invalidTotalCreated }; return backup
     }
     static func restore(_ data:Data,context:ModelContext,replaceExisting:Bool=false) throws {
-        let backup=try validate(data)
-        UsageMetricsStore.suppressNextCreationDelta()
-        if !replaceExisting { let existingDeckIDs=Set(try context.fetch(FetchDescriptor<Deck>()).map(\.id)); let existingCardIDs=Set(try context.fetch(FetchDescriptor<Flashcard>()).map(\.id)); if !existingDeckIDs.isDisjoint(with:backup.decks.map(\.id)) || !existingCardIDs.isDisjoint(with:backup.cards.map(\.id)) { UsageMetricsStore.clear(); throw BackupError.idCollision } }
+        let backup=try validate(data); UsageMetricsStore.suppressNextCreationDelta()
+        if !replaceExisting { let existingDeckIDs=Set(try context.fetch(FetchDescriptor<Deck>()).map(\.id)); let existingCardIDs=Set(try context.fetch(FetchDescriptor<Flashcard>()).map(\.id)); if !existingDeckIDs.isDisjoint(with:backup.decks.map(\.id)) || !existingCardIDs.isDisjoint(with:backup.cards.map(\.id)) { UsageMetricsStore.cancelSuppressedCreationDelta(); throw BackupError.idCollision } }
         else { try context.fetch(FetchDescriptor<ReviewLog>()).forEach(context.delete); try context.fetch(FetchDescriptor<Flashcard>()).forEach(context.delete); try context.fetch(FetchDescriptor<Deck>()).forEach(context.delete) }
         var deckMap:[UUID:Deck]=[:]
         for r in backup.decks { let d=Deck(name:r.name,emoji:r.emoji); d.id=r.id; d.createdAt=r.createdAt; d.newLimit=r.newLimit; d.newDay=r.newDay.isEmpty ? nil : r.newDay; d.newStudiedToday=r.newStudiedToday; context.insert(d); deckMap[r.id]=d }

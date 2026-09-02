@@ -54,7 +54,21 @@ struct DocumentImportService: Sendable {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
-        request.recognitionLanguages = [Locale.current.language.languageCode?.identifier ?? "en"]
+
+        // Prefer the user's language but allow English as a common second
+        // language for lecture slides and technical material. Language detection
+        // remains enabled so multilingual images are handled more gracefully.
+        let preferredLanguage = Locale.current.language.languageCode?.identifier
+        var languages: [String] = []
+        if let preferredLanguage, !preferredLanguage.isEmpty {
+            languages.append(preferredLanguage)
+        }
+        if !languages.contains("en") {
+            languages.append("en")
+        }
+        request.recognitionLanguages = languages
+        request.automaticallyDetectsLanguage = true
+
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         try handler.perform([request])
         let text = (request.results ?? [])

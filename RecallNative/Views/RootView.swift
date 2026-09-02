@@ -4,7 +4,7 @@ import LocalAuthentication
 import SwiftData
 
 private enum RecallTab: Hashable {
-    case home, decks, create, stats, settings
+    case decks, create, stats, settings
 }
 
 struct ImportURLItem: Identifiable {
@@ -17,10 +17,9 @@ struct RootView: View {
     @Query private var offerCards: [Flashcard]
     @Query private var offerReviews: [ReviewLog]
     @Query private var offerDecks: [Deck]
-    @State private var selectedTab: RecallTab = .home
+    @State private var selectedTab: RecallTab = .decks
     @State private var importURL: ImportURLItem?
     @State private var showingDesignLab = false
-    @State private var showingHomeReview = false
     @State private var showingLaunchOffer = false
     @State private var launchOfferScheduled = false
     @State private var lockState: LockState = .checking
@@ -57,13 +56,6 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Home", systemImage: "house.fill", value: RecallTab.home) {
-                HomeView(
-                    onStartReview: { showingHomeReview = true },
-                    onCreate: { selectedTab = .create }
-                )
-            }
-            .accessibilityIdentifier("tab.home")
             Tab("Decks", systemImage: "tray.full", value: RecallTab.decks) {
                 DecksView()
             }
@@ -101,7 +93,6 @@ struct RootView: View {
         .sheet(item: $importURL) { item in ImportLinkView(url: item.url) }
         .sheet(isPresented: $showingDesignLab) { DesignLabView() }
         .sheet(isPresented: $showingLaunchOffer) { LaunchOfferView() }
-        .fullScreenCover(isPresented: $showingHomeReview) { ReviewView() }
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in
             designLabTaps += 1
             if designLabTaps >= 7 {

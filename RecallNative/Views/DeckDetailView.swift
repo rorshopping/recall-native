@@ -140,6 +140,7 @@ struct DeckDetailView: View {
 
 private struct DeckEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Bindable var deck: Deck
     @State private var name: String
     @State private var emoji: String
@@ -177,7 +178,7 @@ private struct DeckEditorSheet: View {
                         deck.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedEmoji = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
                         deck.emoji = trimmedEmoji.isEmpty ? "📚" : String(trimmedEmoji.prefix(2))
-                        try? deck.modelContext?.save()
+                        try? modelContext.save()
                         dismiss()
                     }
                     .disabled(!valid)

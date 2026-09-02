@@ -39,6 +39,13 @@ struct LaunchOfferView: View {
         .onChange(of: subscriptions.isPremium) { _, premium in
             if premium { dismissed = true }
         }
+        // A pageSheet can be dismissed by a swipe or system dismissal without
+        // executing either explicit "Not now" button. Treat that exactly like
+        // the original app's onRequestClose so the one-time welcome never
+        // unexpectedly reappears on the next launch.
+        .onDisappear {
+            if !subscriptions.isPremium { dismissed = true }
+        }
     }
 
     private var content: some View {

@@ -46,6 +46,14 @@ struct LaunchOfferView: View {
                 dismissed = true
             }
         }
+        .alert("Purchase unavailable", isPresented: Binding(
+            get: { subscriptions.purchaseError != nil },
+            set: { if !$0 { subscriptions.clearError() } }
+        )) {
+            Button("OK") { subscriptions.clearError() }
+        } message: {
+            Text(subscriptions.purchaseError ?? "Please try again.")
+        }
     }
 
     private var content: some View {

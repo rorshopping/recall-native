@@ -7,10 +7,32 @@ struct AdvancedAIService: Sendable {
     func generateJSON(instruction: String, systemPrompt: String, source: String) async throws -> Data {
         let material = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !material.isEmpty else { throw AIServiceError.emptyInput }
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            do {
+                return try await AppleOnDeviceAIService().generateJSON(
+                    instruction: instruction,
+                    systemPrompt: systemPrompt,
+                    source: material
+                )
+            } catch AppleOnDeviceAIService.ServiceError.unavailable {
+                // Fall through to the bundled/downloaded Gemma model.
+            } catch {
+                // Apple model failures should not make AI generation unavailable.
+                // Gemma remains the deterministic compatibility fallback.
+            }
+        }
+        #endif
+
+        return try await generateWithGemma(instruction: instruction, systemPrompt: systemPrompt, source: material)
+    }
+
+    private func generateWithGemma(instruction: String, systemPrompt: String, source: String) async throws -> Data {
         guard let modelURL = await modelStore.modelURL() else { throw AIServiceError.modelMissing }
 
-        let topic = instruction + "\n\n" + material
-        let prompt = systemPrompt + "\n\nSOURCE MATERIAL:\n" + material + "\n\nTASK:\n" + instruction
+        let topic = instruction + "\n\n" + source
+        let prompt = systemPrompt + "\n\nSOURCE MATERIAL:\n" + source + "\n\nTASK:\n" + instruction
         let engine = RecallLiteRTEngine(modelPath: modelURL.path)
 
         var lastJSONError: Error?
@@ -21,7 +43,7 @@ struct AdvancedAIService: Sendable {
                     systemPrompt: attempt == 0 ? prompt : prompt + "\n\nIMPORTANT: Your previous response was not valid JSON. Retry and output only valid JSON matching the requested schema."
                 )
                 do {
-                    return try normalizedJSONData(raw)
+                    return try JSONOutputNormalizer.normalize(raw)
                 } catch {
                     lastJSONError = error
                     if attempt == 1 { throw error }
@@ -36,8 +58,10 @@ struct AdvancedAIService: Sendable {
         }
         throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON: \(lastJSONError?.localizedDescription ?? "Please try again.")")
     }
+}
 
-    private func normalizedJSONData(_ raw: String) throws -> Data {
+private enum JSONOutputNormalizer {
+    static func normalize(_ raw: String) throws -> Data {
         let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
@@ -46,11 +70,11 @@ struct AdvancedAIService: Sendable {
             do {
                 let object = try JSONSerialization.jsonObject(with: data)
                 if JSONSerialization.isValidJSONObject(object) { return data }
-            } catch {
-                // Try extracting and repairing a JSON object below.
-            }
+            } catch { }
         }
-        guard let start = cleaned.firstIndex(of: "{"), let end = cleaned.lastIndex(of: "}"), start < end else { throw AIServiceError.generationFailed("Gemma 4 returned no usable JSON. Please try again.") }
+        guard let start = cleaned.firstIndex(of: "{"), let end = cleaned.lastIndex(of: "}"), start < end else {
+            throw AIServiceError.generationFailed("Gemma 4 returned no usable JSON. Please try again.")
+        }
         let slice = String(cleaned[start...end])
         let fixed = slice.replacingOccurrences(of: #"\\(?![\"\\/bfnrtu])"#, with: #"\\\\"#, options: .regularExpression).replacingOccurrences(of: #",\s*([}\]])"#, with: #"$1"#, options: .regularExpression)
         guard let data = fixed.data(using: .utf8) else { throw AIServiceError.generationFailed("Gemma 4 returned malformed JSON. Please try again.") }

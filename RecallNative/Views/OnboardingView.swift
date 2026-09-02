@@ -6,7 +6,7 @@ struct OnboardingView: View {
 
     private let pages: [(icon: String, title: String, body: String)] = [
         ("rectangle.stack.fill", "Remember what matters", "Turn your notes and documents into flashcards and review them with spaced repetition."),
-        ("lock.shield.fill", "Private by design", "Recall keeps your study material on your iPhone. On-device AI runs locally after the model is downloaded."),
+        ("lock.shield.fill", "Private by design", "By default, your study material stays on your iPhone. On-device AI runs locally after the model is downloaded. Optional iCloud sync can be enabled in Settings."),
         ("checkmark.circle.fill", "Build your memory", "Start with a small deck, review what is due, and let Recall schedule the next review for you.")
     ]
 
@@ -14,7 +14,24 @@ struct OnboardingView: View {
         ZStack {
             RecallTheme.canvas.ignoresSafeArea()
             VStack(spacing: 28) {
+                HStack {
+                    if page > 0 {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { page -= 1 }
+                        } label: {
+                            Label("Back", systemImage: "chevron.left")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("onboarding.back")
+                    } else {
+                        Color.clear.frame(width: 1, height: 1)
+                    }
+                    Spacer()
+                }
+                .frame(minHeight: 24)
+
                 Spacer()
+
                 Image(systemName: pages[page].icon)
                     .font(.system(size: 54, weight: .semibold))
                     .foregroundStyle(RecallTheme.accent)
@@ -26,6 +43,7 @@ struct OnboardingView: View {
                     Text(pages[page].title)
                         .font(.largeTitle.bold())
                         .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("onboarding.title")
                     Text(pages[page].body)
                         .font(.body)
                         .foregroundStyle(.secondary)
@@ -42,6 +60,7 @@ struct OnboardingView: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Onboarding page \(page + 1) of \(pages.count)")
+                .accessibilityIdentifier("onboarding.progress")
 
                 Spacer()
 
@@ -57,11 +76,13 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .accessibilityIdentifier("onboarding.continue")
 
                 if page < pages.count - 1 {
                     Button("Skip") { hasCompletedOnboarding = true }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("onboarding.skip")
                 } else {
                     Text("You can change settings anytime.")
                         .font(.caption)
@@ -72,5 +93,6 @@ struct OnboardingView: View {
             .padding(.vertical, 20)
         }
         .interactiveDismissDisabled()
+        .accessibilityElement(children: .contain)
     }
 }

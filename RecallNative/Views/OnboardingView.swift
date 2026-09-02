@@ -91,6 +91,31 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 20)
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 45)
+                    .onEnded { value in
+                        let horizontal = value.translation.width
+                        guard abs(horizontal) > abs(value.translation.height), abs(horizontal) > 70 else { return }
+                        if horizontal < 0, page < pages.count - 1 {
+                            withAnimation(.easeInOut(duration: 0.2)) { page += 1 }
+                        } else if horizontal > 0, page > 0 {
+                            withAnimation(.easeInOut(duration: 0.2)) { page -= 1 }
+                        }
+                    }
+            )
+            .accessibilityActions {
+                if page > 0 {
+                    Button("Previous page") {
+                        withAnimation(.easeInOut(duration: 0.2)) { page -= 1 }
+                    }
+                }
+                if page < pages.count - 1 {
+                    Button("Next page") {
+                        withAnimation(.easeInOut(duration: 0.2)) { page += 1 }
+                    }
+                }
+            }
         }
         .interactiveDismissDisabled()
         .accessibilityElement(children: .contain)

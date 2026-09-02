@@ -113,6 +113,8 @@ struct RecallNativeTests {
         #expect(session.progress == 0)
         #expect(session.progressFraction == 0)
         #expect(session.ratingCounts.isEmpty)
+        #expect(session.positiveRate == 0)
+        #expect(session.completionRate == 0)
     }
 
     @Test func reviewSessionCountsCompletedCards() {
@@ -122,12 +124,17 @@ struct RecallNativeTests {
         #expect(session.completed == 1)
         #expect(session.progress == 1)
         #expect(session.ratingCounts[3] == 1)
+        #expect(session.ratingCount(3) == 1)
+        #expect(session.positiveRate == 100)
+        #expect(session.completionRate == 33)
 
         session.recordReview(completedCard: false, rating: 1)
         #expect(session.reviewed == 2)
         #expect(session.completed == 1)
         #expect(session.progress == 1)
         #expect(session.ratingCounts[1] == 1)
+        #expect(session.ratingCount(1) == 1)
+        #expect(session.positiveRate == 50)
     }
 
     @Test func reviewSessionAgainDoesNotAdvanceProgress() {
@@ -142,6 +149,9 @@ struct RecallNativeTests {
         session.recordReview(completedCard: true, rating: 4)
         #expect(session.progress == 1)
         #expect(session.ratingCounts[4] == 1)
+        #expect(session.ratingCount(4) == 1)
+        #expect(session.positiveRate == 50)
+        #expect(session.completionRate == 50)
     }
 
     @Test func reviewSessionIgnoresInvalidRating() {
@@ -150,6 +160,7 @@ struct RecallNativeTests {
         session.recordReview(completedCard: true, rating: 5)
         #expect(session.reviewed == 2)
         #expect(session.ratingCounts.isEmpty)
+        #expect(session.positiveRate == 0)
     }
 
     @Test func reviewSessionResetClearsAccounting() {
@@ -162,6 +173,8 @@ struct RecallNativeTests {
         #expect(session.progress == 0)
         #expect(session.progressFraction == 0)
         #expect(session.ratingCounts.isEmpty)
+        #expect(session.positiveRate == 0)
+        #expect(session.completionRate == 0)
     }
 
     @Test func backupRejectsOrphanedCard() throws {

@@ -23,6 +23,12 @@ struct ReviewSessionState {
         return min(completed, total)
     }
 
+    /// Number of cards still outstanding in the original session queue.
+    var remaining: Int { max(0, total - progress) }
+
+    /// Whether every card from the original queue has been completed.
+    var isComplete: Bool { total > 0 && progress >= total }
+
     var progressFraction: Double {
         guard total > 0 else { return 0 }
         return Double(progress) / Double(total)

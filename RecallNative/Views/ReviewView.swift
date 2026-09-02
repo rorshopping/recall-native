@@ -26,6 +26,7 @@ struct ReviewView: View {
     @State private var total = 0
     @State private var reviewed = 0
     @State private var completedCards: Set<UUID> = []
+    @State private var introducedNewCards: Set<UUID> = []
     @State private var revealed = false
     @State private var completed = false
     @State private var typed = ""
@@ -133,10 +134,56 @@ struct ReviewView: View {
     private func checkTyped() { guard let card = queue.first else { return }; typeChecked = typed.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(card.answer.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame }
     private var completionView: some View { VStack(spacing: 18) { Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent); Text("Session complete").font(.largeTitle.bold()); Text("\(reviewed) review\(reviewed == 1 ? "" : "s") · \(completedCards.count) card\(completedCards.count == 1 ? "" : "s") completed").foregroundStyle(.secondary); Button("Study again", action: restart).buttonStyle(.borderedProminent); Button("Done") { dismiss() }.buttonStyle(.bordered) }.padding(32) }
     private var emptyView: some View { VStack(spacing: 14) { Image(systemName: "checkmark.circle.fill").font(.system(size: 60)).foregroundStyle(RecallTheme.accent); Text("Nothing due right now").font(.title.bold()); Text("All caught up. Your next reviews will appear here when they are due.").foregroundStyle(.secondary).multilineTextAlignment(.center); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }.padding(32) }
-    private func initializeIfNeeded() { guard !didInitialize else { return }; let scoped = cards.filter { deck == nil || $0.deck?.id == deck?.id }; let initial: [Flashcard]; if studyAll { initial = scoped } else { let due = scoped.filter { !$0.isNew && $0.isDue }; let fresh = Array(scoped.filter(\.isNew).prefix(deck?.newRemainingToday ?? scoped.count)); initial = due + fresh }; queue = initial; total = initial.count; didInitialize = true }
-    private func restart() { audio.stop(); didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; completedCards = []; revealed = false; typed = ""; typeChecked = nil; initializeIfNeeded() }
+
+    private func initializeIfNeeded() {
+        guard !didInitialize else { return }
+        let scoped = cards.filter { deck == nil || $0.deck?.id == deck?.id }
+        let initial: [Flashcard]
+        if studyAll {
+            initial = scoped
+        } else {
+            let due = scoped.filter { !$0.isNew && $0.isDue }
+            var remainingByDeck: [UUID: Int] = [:]
+            for candidateDeck in Set(scoped.compactMap(\.deck)) {
+                remainingByDeck[candidateDeck.id] = candidateDeck.newRemainingToday
+            }
+            var fresh: [Flashcard] = []
+            for card in scoped where card.isNew {
+                guard let candidateDeck = card.deck else { continue }
+                let remaining = remainingByDeck[candidateDeck.id] ?? 0
+                guard remaining > 0 else { continue }
+                fresh.append(card)
+                remainingByDeck[candidateDeck.id] = remaining - 1
+            }
+            initial = due + fresh
+        }
+        queue = initial
+        total = initial.count
+        didInitialize = true
+    }
+
+    private func restart() { audio.stop(); didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; completedCards = []; introducedNewCards = []; revealed = false; typed = ""; typeChecked = nil; initializeIfNeeded() }
     private func displayText(for card: Flashcard) -> String { let source = revealed ? card.answer : card.question; guard card.type == "cloze", !revealed else { return source }; return source.replacingOccurrences(of: #"\{\{c\d+::[^}]*\}\}"#, with: "… … …", options: .regularExpression) }
-    private func rate(_ grade: Int) { guard let card = queue.first else { return }; audio.stop(); let wasNew = card.isNew; let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade); card.state = result.state; card.step = result.step; card.repetitions = result.repetitions; card.interval = result.interval; card.ease = result.ease; card.dueAt = result.dueAt; card.lastReviewedAt = .now; switch grade { case 0: card.againCount += 1; card.lapses += 1; case 1: card.hardCount += 1; case 2: card.goodCount += 1; case 3: card.easyCount += 1; default: break }; HapticsService.grade(grade); if wasNew, let deck { let today = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: .now)); if deck.newDay != today { deck.newDay = today; deck.newStudiedToday = 0 }; deck.newStudiedToday += 1 }; modelContext.insert(ReviewLog(rating: grade + 1, card: card)); try? modelContext.save(); let current = queue.removeFirst(); if grade == 0 { queue.append(current) } else { completedCards.insert(current.id) }; reviewed += 1; revealed = false; typed = ""; typeChecked = nil; if queue.isEmpty { completed = true } }
+    private func rate(_ grade: Int) {
+        guard let card = queue.first else { return }
+        audio.stop()
+        let wasNew = card.isNew
+        let result = SpacedRepetitionService.schedule(state: card.state, step: card.step, repetitions: card.repetitions, interval: card.interval, ease: card.ease, grade: grade)
+        card.state = result.state; card.step = result.step; card.repetitions = result.repetitions; card.interval = result.interval; card.ease = result.ease; card.dueAt = result.dueAt; card.lastReviewedAt = .now
+        switch grade { case 0: card.againCount += 1; card.lapses += 1; case 1: card.hardCount += 1; case 2: card.goodCount += 1; case 3: card.easyCount += 1; default: break }
+        HapticsService.grade(grade)
+        if wasNew, !introducedNewCards.contains(card.id), let cardDeck = card.deck {
+            let today = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: .now))
+            if cardDeck.newDay != today { cardDeck.newDay = today; cardDeck.newStudiedToday = 0 }
+            cardDeck.newStudiedToday += 1
+            introducedNewCards.insert(card.id)
+        }
+        modelContext.insert(ReviewLog(rating: grade + 1, card: card)); try? modelContext.save()
+        let current = queue.removeFirst()
+        if grade == 0 { queue.append(current) } else { completedCards.insert(current.id) }
+        reviewed += 1; revealed = false; typed = ""; typeChecked = nil
+        if queue.isEmpty { completed = true }
+    }
 }
 
 private struct RatingButton: View { let title: String; let subtitle: String; let value: Int; let action: (Int) -> Void; var body: some View { Button { action(value) } label: { VStack(spacing: 2) { Text(title).font(.subheadline.weight(.semibold)); Text(subtitle).font(.caption2).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, minHeight: 42) }.buttonStyle(.borderedProminent).controlSize(.small).frame(maxWidth: .infinity) } }

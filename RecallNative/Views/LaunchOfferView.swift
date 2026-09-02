@@ -11,6 +11,7 @@ struct LaunchOfferView: View {
     @AppStorage("recall.launchOffer.v1.dismissed") private var dismissed = false
     @State private var didLoad = false
     @State private var isPurchasing = false
+    @State private var isRestoring = false
 
     private let priceFallback = "39,99 €"
 
@@ -30,6 +31,10 @@ struct LaunchOfferView: View {
         didLoad && !dismissed && !subscriptions.isPremium && hasEarnedValue
     }
 
+    private var isBusy: Bool {
+        isPurchasing || isRestoring
+    }
+
     var body: some View {
         Group {
             if shouldShow { content }
@@ -41,6 +46,7 @@ struct LaunchOfferView: View {
         .onChange(of: subscriptions.isPremium) { _, premium in
             if premium {
                 dismissed = true
+                dismiss()
             }
         }
         .onDisappear {
@@ -62,6 +68,7 @@ struct LaunchOfferView: View {
                             dismiss()
                         }
                         .foregroundStyle(.secondary)
+                        .disabled(isBusy)
                     }
                     .frame(maxWidth: 520)
 
@@ -93,8 +100,9 @@ struct LaunchOfferView: View {
 
                             if let product = subscriptions.products.first {
                                 Button {
+                                    guard !isBusy else { return }
                                     isPurchasing = true
-                                    Task {
+                                    Task { @MainActor in
                                         await subscriptions.purchase(product)
                                         isPurchasing = false
                                     }
@@ -107,19 +115,31 @@ struct LaunchOfferView: View {
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(RecallTheme.accent)
-                                .disabled(isPurchasing)
+                                .disabled(isBusy)
                             }
 
-                            Button("Restore purchase") {
-                                Task { await subscriptions.restore() }
+                            Button {
+                                guard !isBusy else { return }
+                                isRestoring = true
+                                Task { @MainActor in
+                                    await subscriptions.restore()
+                                    isRestoring = false
+                                }
+                            } label: {
+                                Group {
+                                    if isRestoring { ProgressView() }
+                                    else { Text("Restore purchase") }
+                                }
                             }
                             .foregroundStyle(RecallTheme.accent)
+                            .disabled(isBusy)
 
                             Button("Not now") {
                                 dismissed = true
                                 dismiss()
                             }
                             .buttonStyle(.bordered)
+                            .disabled(isBusy)
 
                             Text("Yearly subscription, auto-renewable. Cancel at least 24 hours before renewal. Manage it in App Store → Subscriptions. This welcome offer shows once.")
                                 .font(.caption2)

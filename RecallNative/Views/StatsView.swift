@@ -8,7 +8,8 @@ struct StatsView: View {
     @AppStorage("dailyGoal") private var dailyGoal = 20
 
     private var calendar: Calendar { Calendar.current }
-    private var todayReviews: Int { reviews.filter { calendar.isDateInToday($0.reviewedAt) }.count }
+    private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, calendar: calendar) }
+    private var todayReviews: Int { metrics.count(on: .now) }
     private var reviewDays: Set<Date> { Set(reviews.map { calendar.startOfDay(for: $0.reviewedAt) }) }
     private var currentStreak: Int {
         var cursor = calendar.startOfDay(for: .now)
@@ -35,7 +36,7 @@ struct StatsView: View {
     private var week: [(label: String, count: Int, today: Bool)] {
         (0..<7).reversed().map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: .now) ?? .now
-            return (date.formatted(.dateTime.weekday(.abbreviated)), reviews.filter { calendar.isDate($0.reviewedAt, inSameDayAs: date) }.count, offset == 0)
+            return (date.formatted(.dateTime.weekday(.abbreviated)), metrics.count(on: date), offset == 0)
         }
     }
 
@@ -65,7 +66,7 @@ struct StatsView: View {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         StatCard(title: "Due today", value: "\(dueCount)", icon: "clock.fill")
                         StatCard(title: "Total cards", value: "\(cards.count)", icon: "rectangle.stack.fill")
-                        StatCard(title: "Reviewed", value: "\(reviews.count)", icon: "checkmark.circle.fill")
+                        StatCard(title: "Reviewed", value: "\(metrics.total)", icon: "checkmark.circle.fill")
                         StatCard(title: "Mastery", value: "\(mastery)%", icon: "brain.head.profile.fill")
                     }
                     Text("REVIEWS · LAST 7 DAYS").font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
@@ -79,7 +80,7 @@ struct StatsView: View {
                             Divider()
                             InfoRow(title: "Due cards", value: "\(dueCount)", icon: "clock")
                             Divider()
-                            InfoRow(title: "Total reviews", value: "\(reviews.count)", icon: "arrow.clockwise")
+                            InfoRow(title: "Total reviews", value: "\(metrics.total)", icon: "arrow.clockwise")
                         }
                     }
                     RecallCard {

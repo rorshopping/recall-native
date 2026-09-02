@@ -30,16 +30,7 @@ struct RootView: View {
     private enum LockState { case checking, locked, unlocked }
     private var colorScheme: ColorScheme? { switch appearance { case "light": return .light; case "dark": return .dark; default: return nil } }
     private var hasEarnedValue: Bool {
-        let hasNonSampleDeck = offerDecks.contains { deck in
-            deck.name != "Spanish Basics" && deck.name != "Spanish Basics — Sample"
-        }
-        let hasMultipleDecks = offerDecks.count > 1
-        let hasEnoughCards = offerCards.count > 6
-        let hasEnoughReviews = offerReviews.count >= 3
-        let hasStudiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
-        let hasStudyHistory = !offerReviews.isEmpty || !ReviewHistoryStore.load().isEmpty
-        let hasCreationHistory = UsageMetricsStore.totalCreated > 6
-        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudiedToday || hasStudyHistory || hasCreationHistory
+        LaunchOfferEligibility.hasEarnedValue(decks: offerDecks, cards: offerCards, reviews: offerReviews)
     }
     var body: some View {
         TabView(selection: $selectedTab) {

@@ -112,42 +112,56 @@ struct RecallNativeTests {
         #expect(session.completed == 0)
         #expect(session.progress == 0)
         #expect(session.progressFraction == 0)
+        #expect(session.ratingCounts.isEmpty)
     }
 
     @Test func reviewSessionCountsCompletedCards() {
         var session = ReviewSessionState(total: 3)
-        session.recordReview(completedCard: true)
+        session.recordReview(completedCard: true, rating: 3)
         #expect(session.reviewed == 1)
         #expect(session.completed == 1)
         #expect(session.progress == 1)
+        #expect(session.ratingCounts[3] == 1)
 
-        session.recordReview(completedCard: false)
+        session.recordReview(completedCard: false, rating: 1)
         #expect(session.reviewed == 2)
         #expect(session.completed == 1)
         #expect(session.progress == 1)
+        #expect(session.ratingCounts[1] == 1)
     }
 
     @Test func reviewSessionAgainDoesNotAdvanceProgress() {
         var session = ReviewSessionState(total: 2)
-        session.recordReview(completedCard: false)
+        session.recordReview(completedCard: false, rating: 1)
         #expect(session.reviewed == 1)
         #expect(session.completed == 0)
         #expect(session.progress == 0)
         #expect(session.progressFraction == 0)
+        #expect(session.ratingCounts[1] == 1)
 
-        session.recordReview(completedCard: true)
+        session.recordReview(completedCard: true, rating: 4)
         #expect(session.progress == 1)
+        #expect(session.ratingCounts[4] == 1)
+    }
+
+    @Test func reviewSessionIgnoresInvalidRating() {
+        var session = ReviewSessionState(total: 1)
+        session.recordReview(completedCard: true, rating: 0)
+        session.recordReview(completedCard: true, rating: 5)
+        #expect(session.reviewed == 2)
+        #expect(session.ratingCounts.isEmpty)
     }
 
     @Test func reviewSessionResetClearsAccounting() {
         var session = ReviewSessionState(total: 2)
-        session.recordReview(completedCard: true)
+        session.recordReview(completedCard: true, rating: 2)
         session.reset(total: 7)
         #expect(session.total == 7)
         #expect(session.reviewed == 0)
         #expect(session.completed == 0)
         #expect(session.progress == 0)
         #expect(session.progressFraction == 0)
+        #expect(session.ratingCounts.isEmpty)
     }
 
     @Test func backupRejectsOrphanedCard() throws {

@@ -16,6 +16,8 @@ struct DecksView: View {
     @State private var showingNewDeck = false
     @State private var showingPaywall = false
     @State private var showingStudyAll = false
+    @State private var showingCreate = false
+    @State private var showingAIImport = false
     @State private var searchText = ""
     @State private var deckSort: DeckSort = .recent
     @StateObject private var subscriptions = SubscriptionService()
@@ -57,6 +59,10 @@ struct DecksView: View {
     private var totalNewAvailable: Int { decks.reduce(0) { $0 + $1.newRemainingToday } }
     private var totalStudyable: Int { totalDue + totalNewAvailable }
 
+    private func startCreate() {
+        showingCreate = true
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -92,6 +98,22 @@ struct DecksView: View {
                         systemImage: searchText.isEmpty ? "rectangle.stack.badge.plus" : "magnifyingglass",
                         description: Text(searchText.isEmpty ? "Create a deck to start learning." : "Try a different deck name, question, answer, or tag.")
                     )
+                    if searchText.isEmpty {
+                        Section {
+                            Button { showingNewDeck = true } label: {
+                                Label("Create a deck", systemImage: "plus.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button { startCreate() } label: {
+                                Label("Generate privately on device", systemImage: "lock.shield.fill")
+                            }
+                            Button { showingAIImport = true } label: {
+                                Label("Generate with your own AI", systemImage: "sparkles")
+                            }
+                        }
+                    }
                 } else {
                     Section {
                         ForEach(filteredDecks) { deck in
@@ -103,6 +125,7 @@ struct DecksView: View {
                         }
                         .onDelete { offsets in
                             offsets.map { filteredDecks[$0] }.forEach(modelContext.delete)
+                            try? modelContext.save()
                         }
                     } header: {
                         HStack {
@@ -123,6 +146,32 @@ struct DecksView: View {
                         }
                     }
                 }
+
+                if !decks.isEmpty {
+                    Section("Create") {
+                        Button { startCreate() } label: {
+                            Label("Generate privately on device", systemImage: "lock.shield.fill")
+                        }
+                        Button { showingAIImport = true } label: {
+                            Label("Generate with your own AI", systemImage: "sparkles")
+                        }
+                    }
+                }
+
+                if !decks.isEmpty && !subscriptions.isPremium {
+                    Section {
+                        Button { showingPaywall = true } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Unlock unlimited decks & cards")
+                                    .font(.headline)
+                                Text("Recall Full · \(subscriptions.yearlyPriceLabel) / year")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
             }
             .navigationTitle("Library")
             .searchable(text: $searchText, prompt: "Search decks and cards")
@@ -135,6 +184,8 @@ struct DecksView: View {
             .task { await subscriptions.load() }
             .sheet(isPresented: $showingNewDeck) { NewDeckSheet() }
             .sheet(isPresented: $showingPaywall) { PaywallView(reason: "decks") }
+            .sheet(isPresented: $showingCreate) { CreateView() }
+            .sheet(isPresented: $showingAIImport) { AIImportView() }
             .fullScreenCover(isPresented: $showingStudyAll) { ReviewView(studyAll: false) }
         }
     }

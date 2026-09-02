@@ -43,15 +43,33 @@ struct RootView: View {
         }
     }
 
+    // Keep the launch offer deliberately gated. The original app waits until
+    // the user has created a meaningful amount of content, reviewed several
+    // cards, and studied today instead of surfacing a paywall immediately.
     private var hasEarnedValue: Bool {
-        let nonSampleDeck = offerDecks.contains { deck in
+        let hasNonSampleDeck = offerDecks.contains { deck in
             let name = deck.name.lowercased()
             let normalizedName = name.replacingOccurrences(of: "—", with: "-")
             return normalizedName != "spanish basics" && normalizedName != "spanish basics - sample"
         }
+        let hasMultipleDecks = offerDecks.count > 1
+        let hasEnoughCards = offerCards.count > 6
+        let hasEnoughReviews = offerReviews.count >= 3
         let hasStudyHistory = !offerReviews.isEmpty
         let studiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
-        return nonSampleDeck || offerDecks.count > 1 || offerCards.count > 6 || offerReviews.count >= 3 || hasStudyHistory || studiedToday
+
+        // The native model does not yet persist the original reducer's
+        // totalCreated counter. Card count is the closest faithful proxy and
+        // prevents deleted/filtered cards from being treated as engagement.
+        let hasEnoughCreatedCards = offerCards.count > 6
+
+        return hasNonSampleDeck
+            && hasMultipleDecks
+            && hasEnoughCards
+            && hasEnoughCreatedCards
+            && hasEnoughReviews
+            && hasStudyHistory
+            && studiedToday
     }
 
     var body: some View {

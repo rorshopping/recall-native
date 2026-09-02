@@ -31,6 +31,7 @@ targets:
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_CFBundleDisplayName: Recall Native
       INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+      CODE_SIGN_ENTITLEMENTS: RecallNative/RecallNative.entitlements
     dependencies:
       - package: RecallOnDeviceAI
         product: RecallLiteRT

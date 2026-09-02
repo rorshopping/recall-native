@@ -7,8 +7,87 @@ enum DeckImportService {
         let back: String
         let hint: String?
         let tags: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case front, back, hint, tags
+        }
+
+        init(front: String, back: String, hint: String?, tags: String?) {
+            self.front = front
+            self.back = back
+            self.hint = hint
+            self.tags = tags
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            // Match the JS contract: front/back must be strings. Invalid
+            // values are rejected by the card validation path rather than
+            // silently coercing them.
+            front = try container.decode(String.self, forKey: .front)
+            back = try container.decode(String.self, forKey: .back)
+            // JS uses String(value).trim() for optional hint/tags. Decode any
+            // JSON scalar/object/array and stringify it so native imports have
+            // the same coercion semantics as recall-app.
+            hint = try Self.decodeStringified(container, forKey: .hint)
+            tags = try Self.decodeStringified(container, forKey: .tags)
+        }
+
+        private static func decodeStringified<T: CodingKey>(
+            _ container: KeyedDecodingContainer<T>,
+            forKey key: T
+        ) throws -> String? {
+            guard container.contains(key), try !container.decodeNil(forKey: key) else {
+                return nil
+            }
+            let value = try container.superDecoder(forKey: key)
+            let json = try JSONValue(from: value)
+            return json.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
     }
-    struct Payload: Decodable { let deck: String?; let cards: [ImportedCard] }
+
+    private enum JSONValue: Decodable {
+        case string(String)
+        case number(String)
+        case bool(Bool)
+        case object([String: JSONValue])
+        case array([JSONValue])
+        case null
+
+        init(from decoder: Decoder) throws {
+            if let value = try? decoder.singleValueContainer().decode(String.self) {
+                self = .string(value)
+            } else if let value = try? decoder.singleValueContainer().decode(Bool.self) {
+                self = .bool(value)
+            } else if let value = try? decoder.singleValueContainer().decode(Double.self) {
+                self = .number(String(value))
+            } else if let value = try? decoder.singleValueContainer().decode([String: JSONValue].self) {
+                self = .object(value)
+            } else if let value = try? decoder.singleValueContainer().decode([JSONValue].self) {
+                self = .array(value)
+            } else {
+                self = .null
+            }
+        }
+
+        var stringValue: String {
+            switch self {
+            case .string(let value): return value
+            case .number(let value): return value
+            case .bool(let value): return value ? "true" : "false"
+            case .object(let value):
+                return value.map { "\($0):\($1.stringValue)" }.joined(separator: ",")
+            case .array(let value):
+                return value.map(\.stringValue).joined(separator: ",")
+            case .null: return "null"
+            }
+        }
+    }
+
+    struct Payload: Decodable {
+        let deck: String?
+        let cards: [ImportedCard]
+    }
 
     static func parse(_ data: Data) throws -> (name: String, cards: [ImportedCard]) {
         let decoder = JSONDecoder()

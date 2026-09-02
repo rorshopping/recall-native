@@ -11,21 +11,7 @@ struct StatsView: View {
     private var calendar: Calendar { Calendar.current }
     private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, calendar: calendar) }
     private var todayReviews: Int { metrics.count(on: .now) }
-    private var reviewDays: Set<Date> { Set(reviews.map { calendar.startOfDay(for: $0.reviewedAt) }) }
-    private var currentStreak: Int {
-        var cursor = calendar.startOfDay(for: .now)
-        if !reviewDays.contains(cursor) {
-            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor), reviewDays.contains(yesterday) else { return 0 }
-            cursor = yesterday
-        }
-        var count = 0
-        while reviewDays.contains(cursor) {
-            count += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        return count
-    }
+    private var currentStreak: Int { metrics.streak(endingOn: .now) }
     private var streakAtRisk: Bool { currentStreak > 0 && todayReviews == 0 }
     private var mastery: Int {
         guard !cards.isEmpty else { return 0 }

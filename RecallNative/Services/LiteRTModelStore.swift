@@ -14,6 +14,7 @@ actor LiteRTModelStore {
     static let modelFilename = "gemma-4-E2B-it.litertlm"
     static let expectedSHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
     static let approximateSizeGB = 2.59
+    private static let minimumFreeBytes: Int64 = 3_000_000_000
     private let downloadURL = URL(string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm")!
     private var activeDownload: Task<URL, Error>?
 
@@ -28,9 +29,16 @@ actor LiteRTModelStore {
         return Double(truncating: size) / 1_000_000
     }
 
+    func availableStorageBytes() -> Int64 {
+        let url = documentsURL()
+        guard let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) else { return 0 }
+        return Int64(values.volumeAvailableCapacityForImportantUsage ?? 0)
+    }
+
     func downloadModel(progress: @escaping @Sendable (ModelDownloadProgress) -> Void = { _ in }) async throws -> URL {
         if let existing = modelURL() { return existing }
         if let activeDownload { return try await activeDownload.value }
+        guard availableStorageBytes() >= Self.minimumFreeBytes else { throw LiteRTModelError.insufficientStorage }
 
         let task = Task<URL, Error> {
             let (bytes, response) = try await URLSession.shared.bytes(from: downloadURL)
@@ -104,12 +112,13 @@ actor LiteRTModelStore {
 }
 
 enum LiteRTModelError: LocalizedError {
-    case downloadFailed, invalidModel, checksumMismatch
+    case downloadFailed, invalidModel, checksumMismatch, insufficientStorage
     var errorDescription: String? {
         switch self {
         case .downloadFailed: return "Gemma 4 could not be downloaded. Check your connection and try again."
         case .invalidModel: return "The downloaded Gemma 4 model is invalid or incomplete."
         case .checksumMismatch: return "The Gemma 4 download failed integrity verification. Please try again."
+        case .insufficientStorage: return "There is not enough free storage to download Gemma 4. Free at least 3 GB and try again."
         }
     }
 }

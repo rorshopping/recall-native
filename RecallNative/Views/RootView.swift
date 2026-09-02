@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import LocalAuthentication
+import SwiftData
 
 private enum RecallTab: Hashable {
     case home, decks, create, stats, settings
@@ -12,16 +13,23 @@ struct ImportURLItem: Identifiable {
 }
 
 struct RootView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var offerCards: [Flashcard]
+    @Query private var offerReviews: [ReviewLog]
+    @Query private var offerDecks: [Deck]
     @State private var selectedTab: RecallTab = .home
     @State private var importURL: ImportURLItem?
     @State private var showingDesignLab = false
     @State private var showingHomeReview = false
+    @State private var showingLaunchOffer = false
+    @State private var launchOfferScheduled = false
     @State private var lockState: LockState = .checking
     @State private var lastBackgroundedAt: Date?
     @State private var isAuthenticating = false
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("designTheme") private var designTheme = "recall"
     @AppStorage("designLabTaps") private var designLabTaps = 0
+    @AppStorage("recall.launchOffer.v1.dismissed") private var launchOfferDismissed = false
     @AppStorage(BiometricLockService.enabledKey) private var biometricEnabled = false
 
     private enum LockState {
@@ -34,6 +42,14 @@ struct RootView: View {
         case "dark": return .dark
         default: return nil
         }
+    }
+
+    private var hasEarnedValue: Bool {
+        let nonSampleDeck = offerDecks.contains { deck in
+            let name = deck.name.lowercased()
+            return name != "spanish basics" && name != "spanish basics — sample"
+        }
+        return nonSampleDeck || offerDecks.count > 1 || offerCards.count > 6 || offerReviews.count >= 3
     }
 
     var body: some View {
@@ -70,13 +86,18 @@ struct RootView: View {
         }
         .onAppear {
             Task { await checkAndLock() }
+            scheduleLaunchOfferIfEligible()
         }
+        .onChange(of: offerCards.count) { _, _ in scheduleLaunchOfferIfEligible() }
+        .onChange(of: offerReviews.count) { _, _ in scheduleLaunchOfferIfEligible() }
+        .onChange(of: offerDecks.count) { _, _ in scheduleLaunchOfferIfEligible() }
         .onOpenURL { url in
             guard ["recall", "recall-flashcards"].contains(url.scheme?.lowercased()), url.host?.lowercased() == "import" else { return }
             importURL = ImportURLItem(url: url)
         }
         .sheet(item: $importURL) { item in ImportLinkView(url: item.url) }
         .sheet(isPresented: $showingDesignLab) { DesignLabView() }
+        .sheet(isPresented: $showingLaunchOffer) { LaunchOfferView() }
         .fullScreenCover(isPresented: $showingHomeReview) { ReviewView() }
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in
             designLabTaps += 1
@@ -92,6 +113,16 @@ struct RootView: View {
             let elapsed = lastBackgroundedAt.map { Date().timeIntervalSince($0) } ?? .infinity
             guard elapsed > BiometricLockService.gracePeriod else { return }
             Task { await checkAndLock() }
+        }
+    }
+
+    private func scheduleLaunchOfferIfEligible() {
+        guard !launchOfferDismissed, !launchOfferScheduled, hasEarnedValue else { return }
+        launchOfferScheduled = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.6))
+            guard !launchOfferDismissed else { return }
+            showingLaunchOffer = true
         }
     }
 

@@ -11,6 +11,8 @@ struct DeckDetailView: View {
     @State private var showingPaywall = false
     @State private var showingDeckEditor = false
     @State private var showingDeleteDeck = false
+    @State private var showingStudyAllConfirmation = false
+    @State private var studyAll = false
     @State private var cardSearch = ""
     @State private var cardSort: CardSort = .newest
     @StateObject private var subscriptions = SubscriptionService()
@@ -30,6 +32,10 @@ struct DeckDetailView: View {
 
     private var canAddCard: Bool {
         EntitlementRules.canCreateCard(isPremium: subscriptions.isPremium, cardCount: deck.cards.count)
+    }
+
+    private var isSampleDeck: Bool {
+        (deck.name == "Spanish Basics" || deck.name == "Spanish Basics — Sample") && deck.cards.count == 6
     }
 
     private var visibleCards: [Flashcard] {
@@ -54,6 +60,18 @@ struct DeckDetailView: View {
         }
     }
 
+    private func studyDeck() {
+        if deck.cards.isEmpty {
+            return
+        }
+        if deck.dueCount + deck.newRemainingToday > 0 {
+            studyAll = false
+            showingReview = true
+        } else {
+            showingStudyAllConfirmation = true
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -69,12 +87,24 @@ struct DeckDetailView: View {
                     }
                 }
 
-                if deck.dueCount + deck.newRemainingToday > 0 {
-                    Button { showingReview = true } label: {
-                        Label("Study \(deck.dueCount + deck.newRemainingToday) cards", systemImage: "play.fill")
+                if isSampleDeck {
+                    RecallCard {
+                        Label("Sample deck", systemImage: "sparkles")
+                            .font(.subheadline.weight(.bold))
+                        Text("Demo content to help you try Recall. You can delete this deck anytime after creating your own.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                if deck.dueCount + deck.newRemainingToday > 0 || !deck.cards.isEmpty {
+                    Button(action: studyDeck) {
+                        Label("Study this deck", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
 
                 HStack {
@@ -167,8 +197,8 @@ struct DeckDetailView: View {
                     Button("Add card", systemImage: canAddCard ? "plus" : "lock.fill") {
                         if canAddCard { showingEditor = true } else { showingPaywall = true }
                     }
-                    if deck.dueCount + deck.newRemainingToday > 0 {
-                        Button("Study deck", systemImage: "play.fill") { showingReview = true }
+                    if deck.dueCount + deck.newRemainingToday > 0 || !deck.cards.isEmpty {
+                        Button("Study deck", systemImage: "play.fill") { studyDeck() }
                     }
                     Divider()
                     Button("Delete deck", systemImage: "trash", role: .destructive) { showingDeleteDeck = true }
@@ -180,7 +210,20 @@ struct DeckDetailView: View {
         .sheet(item: $editingCard) { card in CardEditorSheet(deck: deck, card: card) }
         .sheet(isPresented: $showingDeckEditor) { DeckEditorSheet(deck: deck) }
         .sheet(isPresented: $showingPaywall) { PaywallView(reason: "cards") }
-        .fullScreenCover(isPresented: $showingReview) { ReviewView(deck: deck) }
+        .fullScreenCover(isPresented: $showingReview) { ReviewView(deck: deck, studyAll: studyAll) }
+        .alert("Nothing to study", isPresented: $showingStudyAllConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Study all") {
+                studyAll = true
+                showingReview = true
+            }
+        } message: {
+            Text("All \(deck.cards.count) cards are scheduled for later. Study them all now anyway?")
+        }
+        .alert("No cards yet", isPresented: Binding(
+            get: { deck.cards.isEmpty && showingStudyAllConfirmation == false && false },
+            set: { _ in }
+        )) { }
         .confirmationDialog("Delete this deck?", isPresented: $showingDeleteDeck, titleVisibility: .visible) {
             Button("Delete Deck", role: .destructive) {
                 modelContext.delete(deck)

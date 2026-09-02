@@ -4,7 +4,7 @@ import SwiftData
 struct HomeView: View {
     @Query private var decks: [Deck]
     @Query private var cards: [Flashcard]
-    @Query(sort: \\ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
+    @Query(sort: \ReviewLog.reviewedAt, order: .reverse) private var reviews: [ReviewLog]
     @AppStorage("dailyGoal") private var dailyGoal = 20
     let onStartReview: () -> Void
     let onCreate: () -> Void
@@ -17,7 +17,7 @@ struct HomeView: View {
     private var calendar: Calendar { Calendar.current }
     private var metrics: ReviewMetrics { ReviewMetrics(reviews: reviews, calendar: calendar) }
     private var dueCount: Int { cards.filter { !$0.isNew && $0.isDue }.count }
-    private var newCount: Int { cards.filter(\\.isNew).count }
+    private var newCount: Int { cards.filter(\.isNew).count }
     private var studyableCount: Int { dueCount + min(newCount, decks.reduce(0) { $0 + $1.newRemainingToday }) }
     private var masteredCount: Int { cards.filter { $0.repetitions >= 3 && $0.ease >= 2.5 }.count }
     private var todayReviews: Int { metrics.count(on: .now) }
@@ -88,7 +88,7 @@ struct HomeView: View {
                         }
                         RecallCard {
                             VStack(spacing: 0) {
-                                ForEach(Array(recentReviews.enumerated()), id: \\.element.id) { index, review in
+                                ForEach(Array(recentReviews.enumerated()), id: \.element.id) { index, review in
                                     RecentReviewRow(review: review)
                                     if index < recentReviews.count - 1 { Divider().padding(.leading, 38) }
                                 }

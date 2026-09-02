@@ -63,7 +63,7 @@ struct ReviewMetrics {
         var result = 0
         while dailyCounts[day, default: 0] > 0 {
             result += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, from: day) else { break }
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else { break }
             day = previous
         }
         return result
@@ -76,7 +76,7 @@ struct ReviewMetrics {
         if dailyCounts[today, default: 0] > 0 {
             return streak(endingOn: today)
         }
-        guard let yesterday = calendar.date(byAdding: .day, value: -1, from: today) else { return 0 }
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else { return 0 }
         return streak(endingOn: yesterday)
     }
 

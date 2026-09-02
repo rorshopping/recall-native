@@ -5,15 +5,23 @@ protocol OnDeviceAIService: Sendable {
     func generateFlashcards(from text: String) async throws -> GeneratedDeck
 }
 
-struct GeneratedCard: Identifiable, Sendable, Hashable {
-    let id = UUID()
+struct GeneratedCard: Identifiable, Sendable, Hashable, Codable {
+    let id: UUID
     let question: String
     let answer: String
     let hint: String
     let tags: String
+
+    init(id: UUID = UUID(), question: String, answer: String, hint: String, tags: String) {
+        self.id = id
+        self.question = question
+        self.answer = answer
+        self.hint = hint
+        self.tags = tags
+    }
 }
 
-struct GeneratedDeck: Sendable, Hashable {
+struct GeneratedDeck: Sendable, Hashable, Codable {
     let name: String
     let cards: [GeneratedCard]
 }
@@ -64,13 +72,9 @@ struct LocalAIService: OnDeviceAIService {
                 )
                 return try Self.parseDeckData(data, errorPrefix: "Apple's on-device model")
             } catch AppleOnDeviceAIService.ServiceError.unavailable {
-                // Fall through to Gemma when Apple's model is unavailable.
             } catch AppleOnDeviceAIService.ServiceError.unsupportedLocale {
-                // Fall through to Gemma when the current language is not supported.
             } catch AppleOnDeviceAIService.ServiceError.contextTooLarge {
-                // Fall through to Gemma for sources that exceed Apple's context budget.
             } catch {
-                // Any Apple generation or parsing failure falls back to Gemma.
             }
         }
         #endif
@@ -106,13 +110,6 @@ struct LocalAIService: OnDeviceAIService {
         } catch {
             throw AIServiceError.generationFailed("Gemma 4 could not generate cards: \(error.localizedDescription)")
         }
-    }
-
-    private static func parseDeck(_ raw: String) throws -> GeneratedDeck {
-        guard let data = raw.data(using: .utf8) else {
-            throw AIServiceError.generationFailed("Gemma 4 returned an invalid flashcard deck. Please try again.")
-        }
-        return try parseDeckData(data, errorPrefix: "Gemma 4")
     }
 
     private static func parseDeckData(_ data: Data, errorPrefix: String) throws -> GeneratedDeck {

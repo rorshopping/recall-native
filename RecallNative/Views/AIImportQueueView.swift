@@ -99,7 +99,7 @@ struct AIImportQueueView: View {
                                 Task {
                                     let count = await queue.retryAllFailed()
                                     if count > 0 {
-                                        await queue.startIfNeeded()
+                                        try? await queue.startIfNeeded()
                                         if #available(iOS 26.0, *) {
                                             AIImportBackgroundTask.shared.submitIfNeeded()
                                         }
@@ -218,7 +218,7 @@ struct AIImportQueueView: View {
                 Button {
                     Task {
                         await queue.retry(job.id)
-                        await queue.startIfNeeded()
+                        try? await queue.startIfNeeded()
                         if #available(iOS 26.0, *) {
                             AIImportBackgroundTask.shared.submitIfNeeded()
                         }
@@ -255,28 +255,36 @@ struct AIImportQueueView: View {
         guard case .success(let urls) = result, !urls.isEmpty else { return }
         extractionMessage = "Reading \(urls.count) file\(urls.count == 1 ? "" : "s")…"
         Task {
-            let inputs = await Task.detached(priority: .userInitiated) { [importer] in
+            let outcome = await Task.detached(priority: .userInitiated) { [importer] in
                 var extracted: [(name: String, source: String)] = []
+                var failures: [String] = []
                 for url in urls {
                     do {
                         let text = try importer.extractText(from: url)
                         extracted.append((url.deletingPathExtension().lastPathComponent, text))
                     } catch {
-                        continue
+                        failures.append("\(url.deletingPathExtension().lastPathComponent): \(error.localizedDescription)")
                     }
                 }
-                return extracted
+                return (extracted, failures)
             }.value
 
             await MainActor.run {
                 extractionMessage = nil
+                let inputs = outcome.0
+                let failures = outcome.1
                 if inputs.isEmpty {
-                    errorMessage = "None of the selected files contained readable text."
+                    errorMessage = failures.isEmpty
+                        ? "None of the selected files contained readable text."
+                        : "Couldn’t read any selected files.\n\n" + failures.joined(separator: "\n")
                     return
+                }
+                if !failures.isEmpty {
+                    errorMessage = "Some files couldn’t be added:\n\n" + failures.joined(separator: "\n")
                 }
                 Task {
                     _ = await queue.enqueue(contentsOf: inputs)
-                    await queue.startIfNeeded()
+                    try? await queue.startIfNeeded()
                     if #available(iOS 26.0, *) {
                         AIImportBackgroundTask.shared.submitIfNeeded()
                     }

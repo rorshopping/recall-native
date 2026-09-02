@@ -32,23 +32,8 @@ private struct RecallBootstrapView: View {
     private func seedFreshStoreIfNeeded() {
         guard decks.isEmpty else { return }
 
-        let deck = Deck(name: "Spanish Basics — Sample")
-        let cards: [(String, String, String, String)] = [
-            ("How do you say 'apple'?", "manzana", "la fruta roja", "food"),
-            ("How do you say 'house'?", "casa", "", "food"),
-            ("How do you say 'thank you'?", "gracias", "", "phrases"),
-            ("How do you say 'water'?", "agua", "la bebida", "food"),
-            ("Conjugate: yo (to eat)", "como", "infinitive: comer", "verbs"),
-            ("What is 'el perro'?", "the dog", "", "animals")
-        ]
-
-        for (question, answer, hint, tags) in cards {
-            deck.cards.append(Flashcard(question: question, answer: answer, hint: hint, tags: tags, deck: deck))
-        }
-
-        modelContext.insert(deck)
         do {
-            try modelContext.save()
+            try SeedDataService.insertSampleDeck(into: modelContext)
         } catch {
             assertionFailure("Failed to seed the sample deck: \(error)")
         }

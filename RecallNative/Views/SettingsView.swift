@@ -28,6 +28,7 @@ struct SettingsView: View {
     @State private var showingPaywall = false
     @State private var errorMessage: String?
     @State private var iCloudAvailable: Bool?
+    @State private var iCloudState: ICloudSyncService.SyncState = .noBackup
     @State private var lastSync: Date?
     @State private var showingBiometricUnavailable = false
     private let iCloud = ICloudSyncService()
@@ -115,6 +116,15 @@ struct SettingsView: View {
                         Text(iCloudAvailable == nil ? "Checking…" : iCloudAvailable! ? "Yes" : "No").foregroundStyle(.secondary)
                     }
                     if iCloudEnabled {
+                        HStack {
+                            Label(syncStateTitle, systemImage: syncStateIcon)
+                            Spacer()
+                            Text(syncStateDetail).foregroundStyle(syncStateIsConflict ? .orange : .secondary)
+                        }
+                        if iCloudState == .remoteNewer {
+                            Text("Another device has a newer backup. Restore it before syncing this device to avoid overwriting newer study data.")
+                                .font(.caption).foregroundStyle(.orange)
+                        }
                         Button("Sync now", systemImage: "arrow.triangle.2.circlepath") { syncNow() }
                         Button("Restore from iCloud", systemImage: "icloud.and.arrow.down") { showingICloudRestoreConfirmation = true }
                         HStack { Text("Last sync"); Spacer(); Text(lastSync?.formatted(date: .abbreviated, time: .shortened) ?? "Never").foregroundStyle(.secondary) }
@@ -155,6 +165,7 @@ struct SettingsView: View {
                 biometricLock.refreshAvailability()
                 iCloudAvailable = iCloud.isAvailable()
                 lastSync = iCloud.lastSyncDate()
+                iCloudState = iCloud.state()
                 await subscriptions.load()
             }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { prepareImport($0) }
@@ -183,6 +194,36 @@ struct SettingsView: View {
         }
     }
 
+    private var syncStateTitle: String {
+        switch iCloudState {
+        case .unavailable: return "iCloud status"
+        case .noBackup: return "iCloud backup"
+        case .upToDate: return "iCloud backup"
+        case .remoteNewer: return "Sync conflict"
+        case .localOnly: return "iCloud backup"
+        }
+    }
+
+    private var syncStateDetail: String {
+        switch iCloudState {
+        case .unavailable: return "Unavailable"
+        case .noBackup: return "Not created"
+        case .upToDate: return "Up to date"
+        case .remoteNewer: return "Newer backup found"
+        case .localOnly: return "Local changes"
+        }
+    }
+
+    private var syncStateIcon: String {
+        switch iCloudState {
+        case .remoteNewer: return "exclamationmark.icloud"
+        case .upToDate: return "checkmark.icloud"
+        default: return "icloud"
+        }
+    }
+
+    private var syncStateIsConflict: Bool { iCloudState == .remoteNewer }
+
     private func toggleBiometricLock(_ enabled: Bool) async {
         if enabled {
             guard biometricLock.available else { showingBiometricUnavailable = true; return }
@@ -203,6 +244,7 @@ struct SettingsView: View {
                 return
             }
             iCloudEnabled = true
+            iCloudState = iCloud.state()
             syncNow()
         } else { iCloudEnabled = false }
     }
@@ -210,9 +252,14 @@ struct SettingsView: View {
     private func syncNow() {
         guard iCloudEnabled else { return }
         do {
-            if try iCloud.push(context: modelContext) { lastSync = iCloud.lastSyncDate() }
-            else { errorMessage = "iCloud is unavailable on this device." }
-        } catch { errorMessage = error.localizedDescription }
+            if try iCloud.push(context: modelContext) {
+                lastSync = iCloud.lastSyncDate()
+                iCloudState = iCloud.state()
+            } else { errorMessage = "iCloud is unavailable on this device." }
+        } catch {
+            iCloudState = iCloud.state()
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func restoreFromICloud() {
@@ -220,6 +267,7 @@ struct SettingsView: View {
         do {
             if try iCloud.pull(context: modelContext, replaceExisting: true) {
                 lastSync = iCloud.lastSyncDate()
+                iCloudState = iCloud.state()
             } else {
                 errorMessage = "No iCloud backup is available yet. Sync this device first or use Import Backup."
             }

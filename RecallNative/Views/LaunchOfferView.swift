@@ -20,7 +20,7 @@ struct LaunchOfferView: View {
             return name != "spanish basics" && name != "spanish basics - sample"
         }
         let totalCards = cards.count
-        let hasHistory = reviews.contains { $0.reviewedAt != nil }
+        let hasHistory = !reviews.isEmpty
         return nonSampleDeck || decks.count > 1 || totalCards > 6 || reviews.count >= 3 || hasHistory
     }
 

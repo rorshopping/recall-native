@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import RecallNative
 
@@ -61,6 +62,25 @@ struct BackupCompatibilityTests {
         #expect(backup.decks[0].id == deckID)
         try BackupService.restore(Data(json.utf8), context: makeContext(), replaceExisting: true)
         #expect(UserDefaults.standard.bool(forKey: "hapticsEnabled") == false)
+    }
+
+    @Test @MainActor func nativeBackupRoundTripsHapticPreference() throws {
+        let key = "hapticsEnabled"
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: key) }
+            else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.set(false, forKey: key)
+
+        let context = makeContext()
+        let deck = Deck(name: "Preference test")
+        context.insert(deck)
+        try context.save()
+
+        let data = try BackupService.makeBackup(context: context)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(object?["hapticsEnabled"] as? Bool == false)
     }
 
     private func makeContext() -> ModelContext {

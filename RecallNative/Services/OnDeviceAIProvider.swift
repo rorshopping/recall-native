@@ -22,6 +22,18 @@ enum OnDeviceAIProvider: Sendable {
         }
     }
 
+    var isAvailable: Bool {
+        self != .unavailable
+    }
+
+    var systemImage: String {
+        switch self {
+        case .apple: return "apple.logo"
+        case .gemma: return "cpu"
+        case .unavailable: return "exclamationmark.triangle"
+        }
+    }
+
     static func current(gemmaAvailable: Bool, appleAvailable: Bool? = nil) -> OnDeviceAIProvider {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {

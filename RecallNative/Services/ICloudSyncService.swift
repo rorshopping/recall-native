@@ -44,11 +44,21 @@ struct ICloudSyncService {
         guard isAvailable() else { return false }
 
         let now = Date.now
-        if let remote = remoteEnvelope(), let localDate = localLastSyncDate(), remote.updatedAt > localDate {
+        let localDate = localLastSyncDate()
+
+        // First sync on a device must never overwrite an existing cloud backup.
+        // Restore it first, matching the original app's pull-before-push behavior.
+        if localDate == nil {
+            if let remote = remoteEnvelope() {
+                guard remote.schemaVersion == SyncEnvelope.currentSchemaVersion else {
+                    throw SyncError.unsupportedSchema(remote.schemaVersion)
+                }
+                try BackupService.restore(remote.backupData, context: context, replaceExisting: true)
+            } else if let legacyData = store.data(forKey: Self.legacyKey) {
+                try BackupService.restore(legacyData, context: context, replaceExisting: true)
+            }
+        } else if let remote = remoteEnvelope(), remote.updatedAt > localDate! {
             throw SyncError.remoteChanged(remote.updatedAt)
-        }
-        if remoteEnvelope() != nil, localLastSyncDate() == nil {
-            throw SyncError.remoteExists
         }
 
         let data = try BackupService.makeBackup(context: context)

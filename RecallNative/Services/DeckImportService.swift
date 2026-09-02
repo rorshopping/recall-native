@@ -57,9 +57,9 @@ enum DeckImportService {
 
             return ImportedCard(
                 front: trimmedFront,
-                back: javascriptString(card["hint"]),
-                tags: javascriptString(card["tags"]),
-                hint: javascriptString(card["hint"])
+                back: trimmedBack,
+                hint: javascriptString(card["hint"]),
+                tags: javascriptString(card["tags"])
             )
         }
 
@@ -87,8 +87,8 @@ enum DeckImportService {
     }
 
     // JavaScript's String(value), restricted to values representable by JSON.
-    // In particular, String(null) is "null", while array elements use Array
-    // stringification semantics where null/undefined become empty strings.
+    // Array elements use Array stringification semantics where null becomes an
+    // empty element. Objects stringify to the standard JS object marker.
     private static func javascriptString(_ value: Any?) -> String? {
         guard let value else { return nil }
         let result: String
@@ -103,7 +103,7 @@ enum DeckImportService {
             }
         case let array as [Any]:
             result = array.map { element in
-                guard let element else { return "" }
+                guard let element, !(element is NSNull) else { return "" }
                 return javascriptString(element) ?? ""
             }.joined(separator: ",")
         case is NSNull:

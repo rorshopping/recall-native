@@ -45,8 +45,8 @@ struct RecallBackup: Codable {
     let version: Int; let exportedAt: Date; let decks: [DeckRecord]; let cards: [CardRecord]; let reviews: [ReviewRecord]
 
     // Original Recall stored user-facing settings in the backup meta object.
-    // Keep the one setting that is safe to restore across platforms without
-    // touching entitlement or sync state.
+    // Keep the preference safe to restore across platforms without touching
+    // entitlement or sync state. Native backups use this same field directly.
     fileprivate let importedHapticsEnabled: Bool?
 
     private struct LegacyDeck: Decodable {
@@ -57,22 +57,23 @@ struct RecallBackup: Codable {
         let ease: Double?; let interval: Int?; let reps: Int?; let lapses: Int?; let due: Double?; let lastReviewed: Double?; let state: String?; let step: Int?; let stats: LegacyStats?; let createdAt: Double?
     }
     private struct LegacyMedia: Decodable { let type: String; let uri: String }
-    private struct LegacyStats { let again: Int?; let hard: Int?; let good: Int?; let easy: Int? }
+    private struct LegacyStats: Decodable { let again: Int?; let hard: Int?; let good: Int?; let easy: Int? }
     private struct LegacyMeta: Decodable {
         let streak: Int?; let lastStudyDate: String?; let studiedToday: Int?; let totalReviewed: Int?; let totalCreated: Int?
         let entitlement: [String: Bool]?; let iCloudEnabled: Bool?; let history: [String: Int]?; let hapticsEnabled: Bool?
     }
-    private enum RootKeys: String, CodingKey { case version, schemaVersion, exportedAt, decks, cards, reviews, meta }
+    private enum RootKeys: String, CodingKey { case version, schemaVersion, exportedAt, decks, cards, reviews, meta, hapticsEnabled }
 
-    init(version: Int, exportedAt: Date, decks: [DeckRecord], cards: [CardRecord], reviews: [ReviewRecord]) {
-        self.version = version; self.exportedAt = exportedAt; self.decks = decks; self.cards = cards; self.reviews = reviews; self.importedHapticsEnabled = nil
+    init(version: Int, exportedAt: Date, decks: [DeckRecord], cards: [CardRecord], reviews: [ReviewRecord], hapticsEnabled: Bool? = nil) {
+        self.version = version; self.exportedAt = exportedAt; self.decks = decks; self.cards = cards; self.reviews = reviews; self.importedHapticsEnabled = hapticsEnabled
     }
 
     init(from decoder: Decoder) throws {
         let root = try decoder.container(keyedBy: RootKeys.self)
         if let version = try root.decodeIfPresent(Int.self, forKey: .version), let exportedAt = try root.decodeIfPresent(Date.self, forKey: .exportedAt),
            let decks = try root.decodeIfPresent([DeckRecord].self, forKey: .decks), let cards = try root.decodeIfPresent([CardRecord].self, forKey: .cards), let reviews = try root.decodeIfPresent([ReviewRecord].self, forKey: .reviews) {
-            self.init(version: version, exportedAt: exportedAt, decks: decks, cards: cards, reviews: reviews); return
+            self.init(version: version, exportedAt: exportedAt, decks: decks, cards: cards, reviews: reviews,
+                      hapticsEnabled: try root.decodeIfPresent(Bool.self, forKey: .hapticsEnabled)); return
         }
 
         let legacyDecks = try root.decode([LegacyDeck].self, forKey: .decks)
@@ -93,8 +94,7 @@ struct RecallBackup: Codable {
                     goodCount: max(0, card.stats?.good ?? 0), easyCount: max(0, card.stats?.easy ?? 0), lastReviewedAt: Self.date(card.lastReviewed), deckID: legacyDeck.id))
             }
         }
-        self.init(version: 1, exportedAt: exportedAt, decks: decks, cards: cards, reviews: [])
-        self.importedHapticsEnabled = meta?.hapticsEnabled
+        self.init(version: 1, exportedAt: exportedAt, decks: decks, cards: cards, reviews: [], hapticsEnabled: meta?.hapticsEnabled)
     }
 
     private static func date(_ milliseconds: Double?) -> Date? {
@@ -111,7 +111,7 @@ enum BackupService {
             return .init(id: card.id, question: card.question, answer: card.answer, hint: card.hint, tags: card.tags, type: card.type, typeInAnswer: card.typeInAnswer, mediaType: card.mediaType, mediaURI: card.mediaURI, createdAt: card.createdAt, dueAt: card.dueAt, interval: card.interval, ease: card.ease, repetitions: card.repetitions, state: card.state, step: card.step, lapses: card.lapses, againCount: card.againCount, hardCount: card.hardCount, goodCount: card.goodCount, easyCount: card.easyCount, lastReviewedAt: card.lastReviewedAt, deckID: deckID)
         }
         let reviews = try context.fetch(FetchDescriptor<ReviewLog>()).map { RecallBackup.ReviewRecord(id: $0.id, reviewedAt: $0.reviewedAt, rating: $0.rating, cardID: $0.card?.id) }
-        let backup = RecallBackup(version: 1, exportedAt: .now, decks: decks, cards: cards, reviews: reviews)
+        let backup = RecallBackup(version: 1, exportedAt: .now, decks: decks, cards: cards, reviews: reviews, hapticsEnabled: UserDefaults.standard.object(forKey: "hapticsEnabled") as? Bool ?? true)
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(backup)
     }

@@ -2,15 +2,11 @@ import Foundation
 import SwiftData
 
 enum DeckImportService {
-    struct ImportedCard: Decodable {
+    struct ImportedCard {
         let front: String
         let back: String
         let hint: String?
         let tags: String?
-
-        private enum CodingKeys: String, CodingKey {
-            case front, back, hint, tags
-        }
 
         init(front: String, back: String, hint: String?, tags: String?) {
             self.front = front
@@ -18,86 +14,57 @@ enum DeckImportService {
             self.hint = hint
             self.tags = tags
         }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            // Match the JS contract: front/back must be strings. Invalid
-            // values are rejected by the card validation path rather than
-            // silently coercing them.
-            front = try container.decode(String.self, forKey: .front)
-            back = try container.decode(String.self, forKey: .back)
-            // JS uses String(value).trim() for optional hint/tags. Decode any
-            // JSON scalar/object/array and stringify it so native imports have
-            // the same coercion semantics as recall-app.
-            hint = try Self.decodeStringified(container, forKey: .hint)
-            tags = try Self.decodeStringified(container, forKey: .tags)
-        }
-
-        private static func decodeStringified<T: CodingKey>(
-            _ container: KeyedDecodingContainer<T>,
-            forKey key: T
-        ) throws -> String? {
-            guard container.contains(key), try !container.decodeNil(forKey: key) else {
-                return nil
-            }
-            let value = try container.superDecoder(forKey: key)
-            let json = try JSONValue(from: value)
-            return json.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
     }
 
-    private enum JSONValue: Decodable {
-        case string(String)
-        case number(String)
-        case bool(Bool)
-        case object([String: JSONValue])
-        case array([JSONValue])
-        case null
-
-        init(from decoder: Decoder) throws {
-            if let value = try? decoder.singleValueContainer().decode(String.self) {
-                self = .string(value)
-            } else if let value = try? decoder.singleValueContainer().decode(Bool.self) {
-                self = .bool(value)
-            } else if let value = try? decoder.singleValueContainer().decode(Double.self) {
-                self = .number(String(value))
-            } else if let value = try? decoder.singleValueContainer().decode([String: JSONValue].self) {
-                self = .object(value)
-            } else if let value = try? decoder.singleValueContainer().decode([JSONValue].self) {
-                self = .array(value)
-            } else {
-                self = .null
-            }
-        }
-
-        var stringValue: String {
-            switch self {
-            case .string(let value): return value
-            case .number(let value): return value
-            case .bool(let value): return value ? "true" : "false"
-            case .object(let value):
-                return value.map { "\($0):\($1.stringValue)" }.joined(separator: ",")
-            case .array(let value):
-                return value.map(\.stringValue).joined(separator: ",")
-            case .null: return "null"
-            }
-        }
-    }
-
-    struct Payload: Decodable {
+    struct Payload {
         let deck: String?
         let cards: [ImportedCard]
     }
 
     static func parse(_ data: Data) throws -> (name: String, cards: [ImportedCard]) {
-        let decoder = JSONDecoder()
-        if let payload = try? decoder.decode(Payload.self, from: data) {
-            return try validate(name: payload.deck, cards: payload.cards)
+        let json: Any
+        do {
+            json = try JSONSerialization.jsonObject(with: data, options: [])
+        } catch {
+            throw ImportError.invalidJSON
         }
-        if let cards = try? decoder.decode([ImportedCard].self, from: data) {
-            return try validate(name: nil, cards: cards)
+
+        let cardsSource: [Any]
+        var deckName: String?
+
+        if let array = json as? [Any] {
+            cardsSource = array
+        } else if let object = json as? [String: Any], let cards = object["cards"] as? [Any] {
+            cardsSource = cards
+            if let deck = object["deck"] as? String, !deck.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                deckName = deck.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        } else {
+            throw ImportError.invalidShape
         }
-        throw ImportError.invalidShape
+
+        // Mirror recall-app's JavaScript parser: malformed/non-object cards are
+        // skipped rather than causing the entire import to fail. front/back
+        // must be strings; optional hint/tags use JavaScript String(value).
+        let cleaned = cardsSource.compactMap { value -> ImportedCard? in
+            guard let card = value as? [String: Any] else { return nil }
+            guard let front = card["front"] as? String,
+                  let back = card["back"] as? String else { return nil }
+
+            let trimmedFront = front.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedBack = back.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedFront.isEmpty, !trimmedBack.isEmpty else { return nil }
+
+            return ImportedCard(
+                front: trimmedFront,
+                back: javascriptString(card["hint"]),
+                tags: javascriptString(card["tags"]),
+                hint: javascriptString(card["hint"])
+            )
+        }
+
+        guard !cleaned.isEmpty else { throw ImportError.noCards }
+        return (deckName ?? "Imported deck", cleaned)
     }
 
     static func add(_ data: Data, to context: ModelContext) throws -> Deck {
@@ -105,13 +72,11 @@ enum DeckImportService {
         let deck = Deck(name: parsed.name, emoji: "📚")
         context.insert(deck)
         for item in parsed.cards {
-            let question = item.front.trimmingCharacters(in: .whitespacesAndNewlines)
-            let answer = item.back.trimmingCharacters(in: .whitespacesAndNewlines)
             let hint = item.hint?.trimmingCharacters(in: .whitespacesAndNewlines)
             let tags = item.tags?.trimmingCharacters(in: .whitespacesAndNewlines)
             context.insert(Flashcard(
-                question: question,
-                answer: answer,
+                question: item.front,
+                answer: item.back,
                 hint: hint?.isEmpty == true ? nil : hint,
                 tags: tags?.isEmpty == true ? nil : tags,
                 deck: deck
@@ -121,31 +86,50 @@ enum DeckImportService {
         return deck
     }
 
-    private static func validate(name: String?, cards: [ImportedCard]) throws -> (String, [ImportedCard]) {
-        // Match recall-app's shared deckJson contract: trim front/back, drop
-        // invalid cards, preserve optional hint/tags, and use the same default
-        // deck name when no usable name is supplied. The JS contract does not
-        // impose an artificial maximum on the deck name.
-        let cleaned = cards.compactMap { card -> ImportedCard? in
-            let front = card.front.trimmingCharacters(in: .whitespacesAndNewlines)
-            let back = card.back.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !front.isEmpty, !back.isEmpty else { return nil }
-            return ImportedCard(
-                front: front,
-                back: back,
-                hint: card.hint?.trimmingCharacters(in: .whitespacesAndNewlines),
-                tags: card.tags?.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
+    // JavaScript's String(value), restricted to values representable by JSON.
+    // In particular, String(null) is "null", while array elements use Array
+    // stringification semantics where null/undefined become empty strings.
+    private static func javascriptString(_ value: Any?) -> String? {
+        guard let value else { return nil }
+        let result: String
+        switch value {
+        case let string as String:
+            result = string
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                result = number.boolValue ? "true" : "false"
+            } else {
+                result = javascriptNumberString(number)
+            }
+        case let array as [Any]:
+            result = array.map { element in
+                guard let element else { return "" }
+                return javascriptString(element) ?? ""
+            }.joined(separator: ",")
+        case is NSNull:
+            result = "null"
+        case is [String: Any]:
+            result = "[object Object]"
+        default:
+            result = String(describing: value)
         }
-        guard !cleaned.isEmpty else { throw ImportError.noCards }
-        let deckName = name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (deckName?.isEmpty == false ? deckName! : "Imported deck", cleaned)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func javascriptNumberString(_ number: NSNumber) -> String {
+        let value = number.doubleValue
+        if value.isFinite, value.rounded() == value {
+            return String(format: "%.0f", value)
+        }
+        return String(value)
     }
 
     enum ImportError: LocalizedError {
-        case invalidShape, noCards
+        case invalidJSON, invalidShape, noCards
+
         var errorDescription: String? {
             switch self {
+            case .invalidJSON: return "Not valid JSON"
             case .invalidShape: return "Unexpected shape: expected an array of cards, or { deck, cards }"
             case .noCards: return "No valid cards found"
             }

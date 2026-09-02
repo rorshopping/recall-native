@@ -16,6 +16,7 @@
 		0E5BEB8876ACE1199A70088C /* Flashcard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 031C2F4D0B021EC0495E1DA6 /* Flashcard.swift */; };
 		217628C99D0ACE88021B5B95 /* DesignLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6549B5AD00E34A1D40A5722E /* DesignLabView.swift */; };
 		234AF32114D74E076A0E2AC2 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89887E488B29F7232CD90DF8 /* ReviewView.swift */; };
+		29B6B4608AC7F7B471594A55 /* ReviewMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A124708EAA4D214590C83CF2 /* ReviewMetrics.swift */; };
 		2F5F0EC3311E262F3A2AB5AA /* Deck.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB508974A515913664B3EC5 /* Deck.swift */; };
 		378FC009CCEEADD0C6B46D54 /* AdvancedAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A7F8E043CA6777AE2053A0 /* AdvancedAIService.swift */; };
 		6293C4914E57192AED4F6192 /* RecallNativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE7B8E84130297DE52B2362E /* RecallNativeTests.swift */; };
@@ -84,6 +85,7 @@
 		82FF4C882130796B9F605A43 /* ReviewSessionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewSessionService.swift; sourceTree = "<group>"; };
 		89887E488B29F7232CD90DF8 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
 		975C4E8B40DC4CCCE1C839A3 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		A124708EAA4D214590C83CF2 /* ReviewMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewMetrics.swift; sourceTree = "<group>"; };
 		AFB508974A515913664B3EC5 /* Deck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Deck.swift; sourceTree = "<group>"; };
 		BA32126A2EE739A3D6015F18 /* RecallNative.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RecallNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB8D34D666DE6EEF242928CB /* BackupCompatibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupCompatibilityTests.swift; sourceTree = "<group>"; };
@@ -215,6 +217,7 @@
 				46CFEA5B3EA9FD2B8BA73AB0 /* ICloudSyncService.swift */,
 				1F5C2A09E6D8FBE7C608759D /* LiteRTModelStore.swift */,
 				FC18D3AB0DD47A1620E98A02 /* OnDeviceAIService.swift */,
+				A124708EAA4D214590C83CF2 /* ReviewMetrics.swift */,
 				82FF4C882130796B9F605A43 /* ReviewSessionService.swift */,
 				ECFC4FE8729195673F03A398 /* SpacedRepetitionService.swift */,
 				022F42BFF60064E8D780D07A /* SubscriptionService.swift */,
@@ -334,6 +337,7 @@
 				0421AD069665DDDEF6995E3C /* RecallNativeApp.swift in Sources */,
 				DF96E5090623E945C590CE99 /* RecallTheme.swift in Sources */,
 				85AFBAEEB39A27535EDF8EE6 /* ReviewLog.swift in Sources */,
+				29B6B4608AC7F7B471594A55 /* ReviewMetrics.swift in Sources */,
 				9A7281B60C4C7F3C7930E2D4 /* ReviewSessionService.swift in Sources */,
 				234AF32114D74E076A0E2AC2 /* ReviewView.swift in Sources */,
 				8112F756F8A93B82760A3EC3 /* RootView.swift in Sources */,

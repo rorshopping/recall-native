@@ -104,9 +104,13 @@ struct RootView: View {
                     .font(.system(size: 44, weight: .medium))
                     .foregroundStyle(RecallTheme.accent)
                     .padding(.bottom, 28)
+                    .accessibilityHidden(true)
                 Text("Recall is locked").font(.title2.weight(.semibold))
                 if lockState == .checking {
-                    ProgressView().controlSize(.large).padding(.top, 28)
+                    ProgressView()
+                        .controlSize(.large)
+                        .padding(.top, 28)
+                        .accessibilityLabel("Checking lock status")
                 } else {
                     Button { Task { await attemptUnlock() } } label: {
                         Label("Unlock with Face ID", systemImage: "faceid")
@@ -116,7 +120,9 @@ struct RootView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(RecallTheme.accent)
+                    .padding(.top, 28)
                     .accessibilityIdentifier("lock.unlock")
+                    .accessibilityHint("Unlocks Recall using Face ID or your device passcode.")
                     .disabled(isAuthenticating)
                     Text("Use your device passcode if Face ID is unavailable.")
                         .font(.caption)

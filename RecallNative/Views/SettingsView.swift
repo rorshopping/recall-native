@@ -77,7 +77,7 @@ struct SettingsView: View {
                         }
                     }
                     Button("Restore Purchases", systemImage: "arrow.clockwise") { Task { await subscriptions.restore() } }
-                    Button("Manage Subscription", systemImage: "creditcard") { if let url = URL(string: "https://apps.apple.com/account/subscriptions") { openURL(url) } }
+                    Button("Manage Subscription", systemImage: "creditcard") { subscriptions.manageSubscriptions() }
                     Text("Auto-renewable subscription. The current App Store price is shown above. Payment is charged to your Apple ID. Cancel anytime in Settings → Apple Account → Subscriptions, at least 24 hours before renewal.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Sync") {

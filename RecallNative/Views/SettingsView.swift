@@ -33,12 +33,16 @@ struct SettingsView: View {
     @State private var iCloudState: ICloudSyncService.SyncState = .noBackup
     @State private var lastSync: Date?
     @State private var showingBiometricUnavailable = false
+    @State private var isPurchasing = false
+    @State private var isRestoring = false
     private let iCloud = ICloudSyncService()
 
     private let companyName = "Richard Bäcker"
     private let supportEmail = "info.recall.apps@gmail.com"
     private let privacyEmail = "info.recall.apps@gmail.com"
     private let dailyGoalOptions = [5, 10, 20, 30, 50, 100, 200]
+
+    private var subscriptionBusy: Bool { isPurchasing || isRestoring }
 
     var body: some View {
         NavigationStack {
@@ -68,25 +72,43 @@ struct SettingsView: View {
                 Section("Account & Premium") {
                     if subscriptions.isPremium { Label("Premium active", systemImage: "checkmark.seal.fill").foregroundStyle(RecallTheme.accent) }
                     else {
-                        Button { showingPaywall = true } label: { Label("Unlock Recall Full", systemImage: "sparkles") }
+                        Button { showingPaywall = true } label: { Label("Unlock Recall Full", systemImage: "sparkles") }.disabled(subscriptionBusy)
                         Text("Unlimited decks and cards, all study modes, and iCloud sync.").font(.caption).foregroundStyle(.secondary)
                     }
                     if !subscriptions.products.isEmpty {
                         ForEach(subscriptions.products) { product in
-                            Button { Task { await subscriptions.purchase(product) } } label: {
+                            Button {
+                                guard !subscriptionBusy else { return }
+                                isPurchasing = true
+                                Task { @MainActor in
+                                    await subscriptions.purchase(product)
+                                    isPurchasing = false
+                                }
+                            } label: {
                                 HStack { VStack(alignment: .leading) { Text(product.displayName).foregroundStyle(.primary); Text(product.description).font(.caption).foregroundStyle(.secondary).lineLimit(2) }; Spacer(); Text(product.displayPrice).font(.headline) }
                             }
+                            .disabled(subscriptionBusy)
                         }
                     }
-                    Button("Restore Purchases", systemImage: "arrow.clockwise") { Task { await subscriptions.restore() } }
-                    Button("Manage Subscription", systemImage: "creditcard") { subscriptions.manageSubscriptions() }
+                    Button {
+                        guard !subscriptionBusy else { return }
+                        isRestoring = true
+                        Task { @MainActor in
+                            await subscriptions.restore()
+                            isRestoring = false
+                        }
+                    } label: {
+                        Label(isRestoring ? "Restoring Purchases…" : "Restore Purchases", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(subscriptionBusy)
+                    Button("Manage Subscription", systemImage: "creditcard") { subscriptions.manageSubscriptions() }.disabled(subscriptionBusy)
                     Text("Auto-renewable subscription. The current App Store price is shown above. Payment is charged to your Apple ID. Cancel anytime in Settings → Apple Account → Subscriptions, at least 24 hours before renewal.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Sync") {
                     Toggle("iCloud sync", isOn: Binding(get: { iCloudEnabled }, set: { toggleICloud($0) }))
                     HStack { Label("iCloud available", systemImage: "icloud"); Spacer(); Text(iCloudAvailable == nil ? "Checking…" : iCloudAvailable! ? "Yes" : "No").foregroundStyle(.secondary) }
                     if iCloudEnabled {
-                        HStack { Label(syncStateTitle, systemImage: syncStateIcon); Spacer(); Text(syncStateDetail).foregroundStyle(syncStateIsConflict ? .orange : .secondary) }
+                        HStack { Label("\(syncStateTitle)", systemImage: syncStateIcon); Spacer(); Text(syncStateDetail).foregroundStyle(syncStateIsConflict ? .orange : .secondary) }
                         if iCloudState == .remoteNewer { Text("Another device has a newer backup. Restore it before syncing this device to avoid overwriting newer study data.").font(.caption).foregroundStyle(.orange) }
                         Button("Sync now", systemImage: "arrow.triangle.2.circlepath") { syncNow() }
                         Button("Restore from iCloud", systemImage: "icloud.and.arrow.down") { showingICloudRestoreConfirmation = true }
@@ -146,24 +168,12 @@ struct SettingsView: View {
         if enabled {
             let available = iCloud.isAvailable()
             iCloudAvailable = available
-            guard available else {
-                errorMessage = "iCloud is unavailable. Sign in to iCloud and enable the iCloud capability for this app before turning sync on."
-                return
-            }
+            guard available else { errorMessage = "iCloud is unavailable. Sign in to iCloud and enable the iCloud capability for this app before turning sync on."; return }
             pendingICloudEnable = true
             showingICloudEnableConfirmation = true
-        } else {
-            pendingICloudEnable = false
-            iCloudEnabled = false
-        }
+        } else { pendingICloudEnable = false; iCloudEnabled = false }
     }
-    private func enableICloudAfterConfirmation() {
-        guard pendingICloudEnable else { return }
-        pendingICloudEnable = false
-        iCloudEnabled = true
-        iCloudState = iCloud.state()
-        syncNow()
-    }
+    private func enableICloudAfterConfirmation() { guard pendingICloudEnable else { return }; pendingICloudEnable = false; iCloudEnabled = true; iCloudState = iCloud.state(); syncNow() }
     private func syncNow() { guard iCloudEnabled else { return }; do { if try iCloud.push(context: modelContext) { lastSync = iCloud.lastSyncDate(); iCloudState = iCloud.state() } else { errorMessage = "iCloud is unavailable on this device." } } catch { iCloudState = iCloud.state(); errorMessage = error.localizedDescription } }
     private func restoreFromICloud() { guard iCloudEnabled else { return }; do { if try iCloud.pull(context: modelContext, replaceExisting: true) { lastSync = iCloud.lastSyncDate(); iCloudState = iCloud.state() } else { errorMessage = "No iCloud backup is available yet. Sync this device first or use Import Backup." } } catch { errorMessage = error.localizedDescription } }
     private func exportBackup() { do { let data = try BackupService.makeBackup(context: modelContext); let url = FileManager.default.temporaryDirectory.appendingPathComponent("Recall-Backup-\(Date().formatted(.iso8601.year().month().day())).json"); try data.write(to: url, options: .atomic); backupURL = url; showingShare = true } catch { errorMessage = error.localizedDescription } }
@@ -188,13 +198,14 @@ private struct LicensesSheet: View {
     var body: some View {
         NavigationStack { List {
             Section("Third-party software") {
-                license("Gemma 4 E2B", "Gemma Terms of Use", "Google's Gemma 4 model license applies to the downloaded weights. The required distribution notice is included with Recall Native.")
+                license("Gemma 4 E2B", "Gemma Terms of Use", "Gemma 4 model weights are distributed under Google's applicable Gemma license.")
                 license("LiteRT / LiteRT-LM", "Apache-2.0", "On-device inference runtime.")
                 license("SwiftUI / SwiftData / StoreKit", "Apple SDK", "Apple platform frameworks.")
             }
             Section("Model use") { Text("Gemma 4 is provided under Google's Gemma 4 license and its applicable use restrictions. Generated output is the responsibility of the user. Recall does not claim ownership of generated output.").font(.caption).foregroundStyle(.secondary) }
-            Section { Text("All bundled components are used under their respective licenses. Recall itself is proprietary software by Richard Bäcker.").font(.caption).foregroundStyle(.secondary) }
-        }.navigationTitle("Licenses & Attributions").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } } }
+        }.navigationTitle("Licenses").toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } } }
     }
-    private func license(_ name: String, _ license: String, _ note: String) -> some View { VStack(alignment: .leading, spacing: 3) { HStack { Text(name).font(.headline); Spacer(); Text(license).font(.caption.weight(.semibold)).foregroundStyle(RecallTheme.accent) }; Text(note).font(.caption).foregroundStyle(.secondary) }.padding(.vertical, 2) }
+    private func license(_ name: String, _ license: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) { Text(name).font(.headline); Text(license).font(.subheadline).foregroundStyle(RecallTheme.accent); Text(detail).font(.caption).foregroundStyle(.secondary) }
+    }
 }

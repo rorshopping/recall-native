@@ -36,6 +36,7 @@ actor AIImportQueue {
 
     struct ProgressSnapshot: Sendable {
         let completed: Int
+        let failed: Int
         let total: Int
         let currentName: String?
     }
@@ -43,6 +44,8 @@ actor AIImportQueue {
     private static let storageFileName = "ai-import-queue.json"
     private var jobs: [Job]
     private var isProcessing = false
+    private var processingJobID: UUID?
+    private var processingCancellationRequested = false
     private let ai = LocalAIService()
 
     init() {
@@ -96,14 +99,17 @@ actor AIImportQueue {
             }
         }
         let completed = jobs.filter {
-            switch $0.state {
-            case .completed, .failed: return true
-            case .queued, .processing: return false
-            }
+            if case .completed = $0.state { return true }
+            return false
+        }.count
+        let failed = jobs.filter {
+            if case .failed = $0.state { return true }
+            return false
         }.count
         return ProgressSnapshot(
             completed: completed,
-            total: completed + active.count,
+            failed: failed,
+            total: completed + failed + active.count,
             currentName: jobs.first(where: {
                 if case .processing = $0.state { return true }
                 return false
@@ -175,27 +181,56 @@ actor AIImportQueue {
         return removed
     }
 
+    /// Requests cancellation of the active model call. The current job is
+    /// immediately requeued so an iOS background-task expiration or explicit
+    /// cancellation can never leave a job permanently stuck in processing.
+    func cancelProcessing() {
+        guard isProcessing else { return }
+        processingCancellationRequested = true
+        if let processingJobID,
+           let index = jobs.firstIndex(where: { $0.id == processingJobID }),
+           case .processing = jobs[index].state {
+            jobs[index].state = .queued
+            persist()
+        }
+    }
+
     /// Processes jobs serially. Cancellation requeues the interrupted job so
     /// a later foreground or background run can resume it safely.
     func startIfNeeded() async throws {
         guard !isProcessing else { return }
         isProcessing = true
-        defer { isProcessing = false }
+        processingCancellationRequested = false
+        defer {
+            isProcessing = false
+            processingJobID = nil
+            processingCancellationRequested = false
+        }
 
         while let index = jobs.firstIndex(where: {
             if case .queued = $0.state { return true }
             return false
         }) {
+            try Task.checkCancellation()
+            if processingCancellationRequested { throw CancellationError() }
+
             let id = jobs[index].id
+            processingJobID = id
             jobs[index].state = .processing
             persist()
             let source = jobs[index].source
 
             do {
                 let result = try await ai.generateFlashcards(from: source)
+                try Task.checkCancellation()
+                guard !processingCancellationRequested else { throw CancellationError() }
                 guard let completedIndex = jobs.firstIndex(where: { $0.id == id }) else { continue }
+                guard case .processing = jobs[completedIndex].state else {
+                    throw CancellationError()
+                }
                 jobs[completedIndex].state = .completed(result)
                 persist()
+                processingJobID = nil
             } catch is CancellationError {
                 guard let queuedIndex = jobs.firstIndex(where: { $0.id == id }) else {
                     throw CancellationError()
@@ -204,9 +239,18 @@ actor AIImportQueue {
                 persist()
                 throw CancellationError()
             } catch {
+                guard !processingCancellationRequested else {
+                    guard let queuedIndex = jobs.firstIndex(where: { $0.id == id }) else {
+                        throw CancellationError()
+                    }
+                    jobs[queuedIndex].state = .queued
+                    persist()
+                    throw CancellationError()
+                }
                 guard let failedIndex = jobs.firstIndex(where: { $0.id == id }) else { continue }
                 jobs[failedIndex].state = .failed(error.localizedDescription)
                 persist()
+                processingJobID = nil
             }
         }
     }

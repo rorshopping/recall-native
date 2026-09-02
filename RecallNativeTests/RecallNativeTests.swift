@@ -75,6 +75,38 @@ struct RecallNativeTests {
         #expect(EntitlementRules.canCreateCard(isPremium: true, cardCount: 500))
     }
 
+    @Test func reviewSessionStartsWithZeroProgress() {
+        let session = ReviewSessionState(total: 5)
+        #expect(session.total == 5)
+        #expect(session.reviewed == 0)
+        #expect(session.completed == 0)
+        #expect(session.progress == 1)
+        #expect(session.progressFraction == 0.2)
+    }
+
+    @Test func reviewSessionCountsCompletedCards() {
+        var session = ReviewSessionState(total: 3)
+        session.recordReview(completedCard: true)
+        #expect(session.reviewed == 1)
+        #expect(session.completed == 1)
+        #expect(session.progress == 2)
+
+        session.recordReview(completedCard: false)
+        #expect(session.reviewed == 2)
+        #expect(session.completed == 1)
+        #expect(session.progress == 2)
+    }
+
+    @Test func reviewSessionResetClearsAccounting() {
+        var session = ReviewSessionState(total: 2)
+        session.recordReview(completedCard: true)
+        session.reset(total: 7)
+        #expect(session.total == 7)
+        #expect(session.reviewed == 0)
+        #expect(session.completed == 0)
+        #expect(session.progress == 1)
+    }
+
     @Test func backupRejectsOrphanedCard() throws {
         let orphanDeck = UUID()
         let card = UUID()

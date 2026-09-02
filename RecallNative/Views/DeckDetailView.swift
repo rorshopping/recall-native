@@ -3,11 +3,14 @@ import SwiftData
 
 struct DeckDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Bindable var deck: Deck
     @State private var showingEditor = false
     @State private var editingCard: Flashcard?
     @State private var showingReview = false
     @State private var showingPaywall = false
+    @State private var showingDeckEditor = false
+    @State private var showingDeleteDeck = false
     @StateObject private var subscriptions = SubscriptionService()
 
     private var canAddCard: Bool {
@@ -84,9 +87,16 @@ struct DeckDetailView: View {
                                     }.foregroundStyle(RecallTheme.accent)
                                 }
                             }
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Edit card", systemImage: "pencil") { editingCard = card }
+                            Button("Delete card", systemImage: "trash", role: .destructive) {
+                                modelContext.delete(card)
+                                try? modelContext.save()
+                            }
+                        }
                     }
-                    .onDelete { offsets in offsets.map { sortedCards[$0] }.forEach(modelContext.delete) }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,18 +107,84 @@ struct DeckDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("Edit deck", systemImage: "pencil") { showingDeckEditor = true }
                     Button("Add card", systemImage: canAddCard ? "plus" : "lock.fill") {
                         if canAddCard { showingEditor = true } else { showingPaywall = true }
                     }
-                    if deck.dueCount + deck.newRemainingToday > 0 { Button("Study deck", systemImage: "play.fill") { showingReview = true } }
+                    if deck.dueCount + deck.newRemainingToday > 0 {
+                        Button("Study deck", systemImage: "play.fill") { showingReview = true }
+                    }
+                    Divider()
+                    Button("Delete deck", systemImage: "trash", role: .destructive) { showingDeleteDeck = true }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
         .task { await subscriptions.load() }
         .sheet(isPresented: $showingEditor) { CardEditorSheet(deck: deck) }
         .sheet(item: $editingCard) { card in CardEditorSheet(deck: deck, card: card) }
+        .sheet(isPresented: $showingDeckEditor) { DeckEditorSheet(deck: deck) }
         .sheet(isPresented: $showingPaywall) { PaywallView(reason: "cards") }
         .fullScreenCover(isPresented: $showingReview) { ReviewView(deck: deck) }
+        .confirmationDialog("Delete this deck?", isPresented: $showingDeleteDeck, titleVisibility: .visible) {
+            Button("Delete Deck", role: .destructive) {
+                modelContext.delete(deck)
+                try? modelContext.save()
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes \(deck.cards.count) cards and their study history from this device. This cannot be undone.")
+        }
+    }
+}
+
+private struct DeckEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var deck: Deck
+    @State private var name: String
+    @State private var emoji: String
+
+    init(deck: Deck) {
+        self.deck = deck
+        _name = State(initialValue: deck.name)
+        _emoji = State(initialValue: deck.emoji)
+    }
+
+    private var valid: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Deck") {
+                    TextField("Name", text: $name)
+                    TextField("Emoji", text: $emoji)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                Section("New cards") {
+                    Stepper("Daily new-card limit · \(deck.newLimit)", value: $deck.newLimit, in: 1...200)
+                    Text("Controls how many new cards from this deck can enter a study session each day.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Edit deck")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        deck.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedEmoji = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
+                        deck.emoji = trimmedEmoji.isEmpty ? "📚" : String(trimmedEmoji.prefix(2))
+                        try? deck.modelContext?.save()
+                        dismiss()
+                    }
+                    .disabled(!valid)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

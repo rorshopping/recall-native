@@ -6,7 +6,10 @@ final class RecallNativeAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,
                      completionHandler: @escaping () -> Void) {
-        guard identifier == BackgroundModelDownloader.sessionIdentifier else { return }
+        guard identifier == BackgroundModelDownloader.sessionIdentifier else {
+            completionHandler()
+            return
+        }
         BackgroundModelDownloader.shared.handleBackgroundEvents(completionHandler: completionHandler)
     }
 }

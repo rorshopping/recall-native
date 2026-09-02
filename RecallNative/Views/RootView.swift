@@ -6,9 +6,6 @@ private enum RecallTab: Hashable {
     case home, decks, create, stats, settings
 }
 
-/// `URL` is not `Identifiable`, but `sheet(item:)` needs an `Identifiable`
-/// item. This wrapper is the smallest adapter that lets `RootView` present
-/// `ImportLinkView` only when an import URL is non-nil.
 struct ImportURLItem: Identifiable {
     let id = UUID()
     let url: URL
@@ -40,13 +37,11 @@ struct RootView: View {
     }
 
     var body: some View {
-        // iOS 26 ships a floating Liquid Glass tab bar as the only style on
-        // iPhone (per Apple's HIG). Tab content scrolls behind it; the
-        // per-tab background must reach the bottom safe-area edge so the
-        // tab bar's translucency shows content underneath instead of the
-        // default system background.
         TabView(selection: $selectedTab) {
-            HomeView(onStartReview: { showingHomeReview = true })
+            HomeView(
+                onStartReview: { showingHomeReview = true },
+                onCreate: { selectedTab = .create }
+            )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(RecallTab.home)

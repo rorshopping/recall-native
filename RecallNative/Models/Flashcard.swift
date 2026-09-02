@@ -59,9 +59,18 @@ final class Flashcard {
 
     var isNew: Bool { state == "new" }
     var isDue: Bool { dueAt <= .now }
+
     var statusTitle: String {
-        if isNew { return "New" }
-        if dueAt <= .now { return "Due now" }
-        return "Due \(dueAt.formatted(date: .abbreviated, time: .omitted))"
+        switch state {
+        case "new":
+            return "New"
+        case "learning":
+            return isDue ? "Learning now" : "Learning · \(dueAt.formatted(date: .abbreviated, time: .shortened))"
+        case "relearning":
+            return isDue ? "Relearning now" : "Relearning · \(dueAt.formatted(date: .abbreviated, time: .shortened))"
+        default:
+            if dueAt <= .now { return "Due now" }
+            return "Due \(dueAt.formatted(date: .abbreviated, time: .omitted))"
+        }
     }
 }

@@ -125,13 +125,11 @@ struct HomeView: View {
                             }
                         }
                     }
-
-                    Color.clear.frame(height: 96)
                 }
                 .padding(.horizontal)
                 .padding(.top, 12)
             }
-            .background(RecallTheme.canvas)
+            .background(RecallTheme.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
         }
     }

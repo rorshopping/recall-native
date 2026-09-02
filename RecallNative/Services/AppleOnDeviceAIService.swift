@@ -7,6 +7,7 @@ import FoundationModels
 struct AppleOnDeviceAIService: Sendable {
     enum ServiceError: LocalizedError {
         case unavailable
+        case unsupportedLocale
         case emptyResponse
         case contextTooLarge
 
@@ -14,6 +15,8 @@ struct AppleOnDeviceAIService: Sendable {
             switch self {
             case .unavailable:
                 return "Apple's on-device language model is not available on this device."
+            case .unsupportedLocale:
+                return "Apple's on-device language model doesn't support the current language."
             case .emptyResponse:
                 return "Apple's on-device language model returned no content."
             case .contextTooLarge:
@@ -23,14 +26,17 @@ struct AppleOnDeviceAIService: Sendable {
     }
 
     func generateJSON(instruction: String, systemPrompt: String, source: String) async throws -> Data {
-        guard SystemLanguageModel.default.isAvailable else {
+        let model = SystemLanguageModel.default
+        guard model.isAvailable else {
             throw ServiceError.unavailable
+        }
+        guard model.supportsLocale(Locale.current) else {
+            throw ServiceError.unsupportedLocale
         }
 
         let material = source.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !material.isEmpty else { throw AIServiceError.emptyInput }
 
-        let model = SystemLanguageModel.default
         let session = LanguageModelSession(instructions: systemPrompt)
         let prompt = "SOURCE MATERIAL:\n\(material)\n\nTASK:\n\(instruction)\n\nReturn ONLY valid JSON. Do not include markdown, prose, or code fences."
 

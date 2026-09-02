@@ -37,12 +37,6 @@ struct RootView: View {
     }
 
     var body: some View {
-        // iOS 26 ships a floating Liquid Glass tab bar as the only style on
-        // iPhone (per Apple's HIG). The legacy `.tabItem { Label(...)}.tag(...)`
-        // pattern still works but does not give SwiftUI enough structural
-        // information for the new tab bar — it falls back to a less correct
-        // layout. The new `Tab(_:systemImage:value:)` API lets the system
-        // lay out the Liquid Glass tab bar with full content underneath.
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "house.fill", value: RecallTab.home) {
                 HomeView(
@@ -50,18 +44,23 @@ struct RootView: View {
                     onCreate: { selectedTab = .create }
                 )
             }
+            .accessibilityIdentifier("tab.home")
             Tab("Decks", systemImage: "tray.full", value: RecallTab.decks) {
                 DecksView()
             }
+            .accessibilityIdentifier("tab.decks")
             Tab("Create", systemImage: "sparkles", value: RecallTab.create) {
                 CreateView()
             }
+            .accessibilityIdentifier("tab.create")
             Tab("Stats", systemImage: "chart.line.uptrend.xyaxis", value: RecallTab.stats) {
                 StatsView()
             }
+            .accessibilityIdentifier("tab.stats")
             Tab("Settings", systemImage: "gearshape", value: RecallTab.settings) {
                 SettingsView()
             }
+            .accessibilityIdentifier("tab.settings")
         }
         .tint(RecallTheme.accent)
         .preferredColorScheme(colorScheme)
@@ -117,7 +116,7 @@ struct RootView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(RecallTheme.accent)
-                    .padding(.top, 28)
+                    .accessibilityIdentifier("lock.unlock")
                     .disabled(isAuthenticating)
                     Text("Use your device passcode if Face ID is unavailable.")
                         .font(.caption)

@@ -8,18 +8,186 @@ struct ModelDownloadProgress: Sendable {
     let totalBytes: Int64
 }
 
+/// Owns the URLSession background transfer. Unlike URLSession.bytes(from:), a
+/// background download is continued by iOS while the app is suspended and can
+/// be completed after the app has been terminated and relaunched.
+final class BackgroundModelDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    static let shared = BackgroundModelDownloader()
+    static let sessionIdentifier = "com.recalllabs.recall-native.gemma-model"
+
+    private let lock = NSLock()
+    private lazy var session: URLSession = {
+        let configuration = URLSessionConfiguration.background(withIdentifier: Self.sessionIdentifier)
+        configuration.sessionSendsLaunchEvents = true
+        configuration.isDiscretionary = false
+        configuration.waitsForConnectivity = true
+        configuration.allowsExpensiveNetworkAccess = true
+        configuration.allowsConstrainedNetworkAccess = true
+        return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+    }()
+
+    private var continuation: CheckedContinuation<URL, Error>?
+    private var progressHandler: (@Sendable (ModelDownloadProgress) -> Void)?
+    private var activeTaskIdentifier: Int?
+    private var backgroundEventsCompletion: (() -> Void)?
+
+    func download(
+        from sourceURL: URL,
+        destination: URL,
+        progress: @escaping @Sendable (ModelDownloadProgress) -> Void
+    ) async throws -> URL {
+        if FileManager.default.fileExists(atPath: destination.path) {
+            return destination
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
+            self.continuation = continuation
+            self.progressHandler = progress
+            lock.unlock()
+
+            session.getAllTasks { [weak self] tasks in
+                guard let self else { return }
+                if let existing = tasks.first(where: { $0.taskDescription == Self.sessionIdentifier }) as? URLSessionDownloadTask {
+                    self.lock.lock()
+                    self.activeTaskIdentifier = existing.taskIdentifier
+                    self.lock.unlock()
+                    existing.resume()
+                    return
+                }
+
+                let task = self.session.downloadTask(with: sourceURL)
+                task.taskDescription = Self.sessionIdentifier
+                self.lock.lock()
+                self.activeTaskIdentifier = task.taskIdentifier
+                self.lock.unlock()
+                task.resume()
+            }
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        let identifier = activeTaskIdentifier
+        lock.unlock()
+        guard let identifier else { return }
+        session.getAllTasks { tasks in
+            (tasks.first { $0.taskIdentifier == identifier } as? URLSessionDownloadTask)?.cancel()
+        }
+    }
+
+    func handleBackgroundEvents(completionHandler: @escaping () -> Void) {
+        lock.lock()
+        backgroundEventsCompletion = completionHandler
+        lock.unlock()
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        let handler: (@Sendable (ModelDownloadProgress) -> Void)?
+        lock.lock()
+        handler = progressHandler
+        lock.unlock()
+        handler?(ModelDownloadProgress(
+            fraction: totalBytesExpectedToWrite > 0
+                ? min(1, Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+                : 0,
+            bytesWritten: totalBytesWritten,
+            totalBytes: totalBytesExpectedToWrite
+        ))
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {
+        let destination = LiteRTModelStore.modelFileURL()
+        do {
+            guard let response = downloadTask.response as? HTTPURLResponse,
+                  (200...299).contains(response.statusCode) else {
+                throw LiteRTModelError.downloadFailed
+            }
+
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.moveItem(at: location, to: destination)
+            guard RecallLiteRTEngine.isLiteRTLM(destination) else {
+                try? FileManager.default.removeItem(at: destination)
+                throw LiteRTModelError.invalidModel
+            }
+            let digest = try LiteRTModelStore.sha256(of: destination)
+            guard digest == LiteRTModelStore.expectedSHA256 else {
+                try? FileManager.default.removeItem(at: destination)
+                throw LiteRTModelError.checksumMismatch
+            }
+
+            lock.lock()
+            let continuation = self.continuation
+            self.continuation = nil
+            self.progressHandler = nil
+            self.activeTaskIdentifier = nil
+            lock.unlock()
+            continuation?.resume(returning: destination)
+        } catch {
+            lock.lock()
+            let continuation = self.continuation
+            self.continuation = nil
+            self.progressHandler = nil
+            self.activeTaskIdentifier = nil
+            lock.unlock()
+            continuation?.resume(throwing: error)
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    didCompleteWithError error: Error?) {
+        guard let error else { return }
+        lock.lock()
+        let continuation = self.continuation
+        self.continuation = nil
+        self.progressHandler = nil
+        self.activeTaskIdentifier = nil
+        lock.unlock()
+        let nsError = error as NSError
+        continuation?.resume(throwing: nsError.code == NSURLErrorCancelled ? LiteRTModelError.cancelled : error)
+    }
+
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        lock.lock()
+        let completion = backgroundEventsCompletion
+        backgroundEventsCompletion = nil
+        lock.unlock()
+        completion?()
+    }
+}
+
 actor LiteRTModelStore {
     static let shared = LiteRTModelStore()
 
     static let modelFilename = "gemma-4-E2B-it.litertlm"
-    static let expectedSHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    static let expectedSHA256 = "181938105e0eefd105961417e8da75903deac102c4fce9ce90f50b97139a63c"
     static let approximateSizeGB = 2.59
     private static let minimumFreeBytes: Int64 = 3_000_000_000
     private let downloadURL = URL(string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm")!
     private var activeDownload: Task<URL, Error>?
 
+    nonisolated static func modelFileURL() -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(Self.modelFilename)
+    }
+
+    nonisolated static func sha256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let data = handle.readData(ofLength: 4 * 1024 * 1024)
+            if data.isEmpty { break }
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
     func modelURL() -> URL? {
-        let url = documentsURL().appendingPathComponent(Self.modelFilename)
+        let url = Self.modelFileURL()
         guard FileManager.default.fileExists(atPath: url.path), RecallLiteRTEngine.isLiteRTLM(url) else { return nil }
         return url
     }
@@ -30,7 +198,7 @@ actor LiteRTModelStore {
     }
 
     func availableStorageBytes() -> Int64 {
-        let url = documentsURL()
+        let url = Self.modelFileURL()
         guard let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) else { return 0 }
         return Int64(values.volumeAvailableCapacityForImportantUsage ?? 0)
     }
@@ -40,90 +208,25 @@ actor LiteRTModelStore {
         if let activeDownload { return try await activeDownload.value }
         guard availableStorageBytes() >= Self.minimumFreeBytes else { throw LiteRTModelError.insufficientStorage }
 
-        let temporary = documentsURL().appendingPathComponent("\(Self.modelFilename).download")
         let task = Task<URL, Error> {
-            do {
-                let (bytes, response) = try await URLSession.shared.bytes(from: downloadURL)
-                guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                    throw LiteRTModelError.downloadFailed
-                }
-
-                let total = max(Int64(http.expectedContentLength), 0)
-                let destination = documentsURL().appendingPathComponent(Self.modelFilename)
-                try? FileManager.default.removeItem(at: temporary)
-                guard FileManager.default.createFile(atPath: temporary.path, contents: nil) else {
-                    throw LiteRTModelError.downloadFailed
-                }
-                let handle = try FileHandle(forWritingTo: temporary)
-                defer { try? handle.close() }
-
-                var written: Int64 = 0
-                var buffer = Data()
-                buffer.reserveCapacity(1024 * 1024)
-                for try await byte in bytes {
-                    try Task.checkCancellation()
-                    buffer.append(byte)
-                    if buffer.count >= 1024 * 1024 {
-                        try handle.write(contentsOf: buffer)
-                        written += Int64(buffer.count)
-                        buffer.removeAll(keepingCapacity: true)
-                        progress(ModelDownloadProgress(fraction: total > 0 ? Double(written) / Double(total) : 0, bytesWritten: written, totalBytes: total))
-                    }
-                }
-                try Task.checkCancellation()
-                if !buffer.isEmpty {
-                    try handle.write(contentsOf: buffer)
-                    written += Int64(buffer.count)
-                }
-                progress(ModelDownloadProgress(fraction: total > 0 ? 1 : 0, bytesWritten: written, totalBytes: total))
-                try handle.close()
-
-                try? FileManager.default.removeItem(at: destination)
-                try FileManager.default.moveItem(at: temporary, to: destination)
-                guard RecallLiteRTEngine.isLiteRTLM(destination) else {
-                    try? FileManager.default.removeItem(at: destination)
-                    throw LiteRTModelError.invalidModel
-                }
-                let digest = try sha256(of: destination)
-                guard digest == Self.expectedSHA256 else {
-                    try? FileManager.default.removeItem(at: destination)
-                    throw LiteRTModelError.checksumMismatch
-                }
-                return destination
-            } catch is CancellationError {
-                try? FileManager.default.removeItem(at: temporary)
-                throw LiteRTModelError.cancelled
-            } catch {
-                try? FileManager.default.removeItem(at: temporary)
-                throw error
-            }
+            try await BackgroundModelDownloader.shared.download(
+                from: self.downloadURL,
+                destination: Self.modelFileURL(),
+                progress: progress
+            )
         }
-
         activeDownload = task
         defer { activeDownload = nil }
         return try await task.value
     }
 
     func cancelDownload() {
-        activeDownload?.cancel()
+        BackgroundModelDownloader.shared.cancel()
     }
 
     func deleteDownloadedModel() {
-        try? FileManager.default.removeItem(at: documentsURL().appendingPathComponent(Self.modelFilename))
-    }
-
-    private func documentsURL() -> URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
-
-    private func sha256(of url: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
-        var hasher = SHA256()
-        while true {
-            let data = handle.readData(ofLength: 4 * 1024 * 1024)
-            if data.isEmpty { break }
-            hasher.update(data: data)
-        }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        BackgroundModelDownloader.shared.cancel()
+        try? FileManager.default.removeItem(at: Self.modelFileURL())
     }
 }
 

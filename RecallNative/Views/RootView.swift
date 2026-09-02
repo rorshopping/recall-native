@@ -4,9 +4,7 @@ import LocalAuthentication
 import SwiftData
 
 private enum RecallTab: Hashable { case decks, create, stats, settings }
-
 struct ImportURLItem: Identifiable { let id = UUID(); let url: URL }
-
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -30,7 +28,6 @@ struct RootView: View {
     private let iCloud = ICloudSyncService()
     private enum LockState { case checking, locked, unlocked }
     private var colorScheme: ColorScheme? { switch appearance { case "light": return .light; case "dark": return .dark; default: return nil } }
-
     private var hasEarnedValue: Bool {
         let hasNonSampleDeck = offerDecks.contains { deck in
             let name = deck.name.lowercased()
@@ -42,10 +39,9 @@ struct RootView: View {
         let hasEnoughReviews = offerReviews.count >= 3
         let hasStudyHistory = !offerReviews.isEmpty
         let studiedToday = offerReviews.contains { Calendar.current.isDateInToday($0.reviewedAt) }
-        let hasEnoughCreatedCards = offerCards.count > 6
-        return hasNonSampleDeck && hasMultipleDecks && hasEnoughCards && hasEnoughCreatedCards && hasEnoughReviews && hasStudyHistory && studiedToday
+        // Match the original value-earned trigger: any meaningful engagement milestone is sufficient.
+        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory || studiedToday
     }
-
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Decks", systemImage: "tray.full", value: RecallTab.decks) { DecksView() }.accessibilityIdentifier("tab.decks")
@@ -68,18 +64,12 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in lastBackgroundedAt = Date() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in let elapsed = lastBackgroundedAt.map { Date().timeIntervalSince($0) } ?? .infinity; guard elapsed > BiometricLockService.gracePeriod else { return }; Task { await checkAndLock() } }
     }
-
-    private func syncBeforeSuspension() {
-        guard iCloudEnabled else { return }
-        do { try modelContext.save(); _ = try iCloud.push(context: modelContext) } catch { }
-    }
-
+    private func syncBeforeSuspension() { guard iCloudEnabled else { return }; do { try modelContext.save(); _ = try iCloud.push(context: modelContext) } catch { } }
     private func scheduleLaunchOfferIfEligible() {
         guard !launchOfferDismissed, !launchOfferScheduled, hasEarnedValue else { return }
         launchOfferScheduled = true
         Task { @MainActor in try? await Task.sleep(for: .seconds(0.6)); guard !launchOfferDismissed else { return }; showingLaunchOffer = true }
     }
-
     @ViewBuilder private var lockOverlay: some View {
         ZStack {
             Color(uiColor: .systemBackground).ignoresSafeArea()
@@ -96,9 +86,7 @@ struct RootView: View {
             }
         }.transition(.opacity).zIndex(100)
     }
-
     @MainActor private func checkAndLock() async { guard biometricEnabled else { lockState = .unlocked; return }; lockState = .locked; await attemptUnlock() }
-
     @MainActor private func attemptUnlock() async {
         guard !isAuthenticating else { return }
         isAuthenticating = true

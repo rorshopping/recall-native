@@ -1,6 +1,15 @@
 import SwiftUI
 import SwiftData
 
+enum DeckSort: String, CaseIterable, Identifiable {
+    case recent = "Recently added"
+    case alphabetical = "A to Z"
+    case due = "Most due"
+    case cards = "Most cards"
+
+    var id: String { rawValue }
+}
+
 struct DecksView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Deck.createdAt, order: .reverse) private var decks: [Deck]
@@ -8,6 +17,7 @@ struct DecksView: View {
     @State private var showingPaywall = false
     @State private var showingStudyAll = false
     @State private var searchText = ""
+    @State private var deckSort: DeckSort = .recent
     @StateObject private var subscriptions = SubscriptionService()
 
     private var canCreateDeck: Bool {
@@ -16,13 +26,29 @@ struct DecksView: View {
 
     private var filteredDecks: [Deck] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return decks }
-        return decks.filter { deck in
+        let matching = query.isEmpty ? decks : decks.filter { deck in
             deck.name.localizedCaseInsensitiveContains(query) ||
             deck.cards.contains { card in
                 card.question.localizedCaseInsensitiveContains(query) ||
                 card.answer.localizedCaseInsensitiveContains(query) ||
                 card.tags.localizedCaseInsensitiveContains(query)
+            }
+        }
+
+        switch deckSort {
+        case .recent:
+            return matching.sorted { $0.createdAt > $1.createdAt }
+        case .alphabetical:
+            return matching.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .due:
+            return matching.sorted { lhs, rhs in
+                if lhs.dueCount != rhs.dueCount { return lhs.dueCount > rhs.dueCount }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+        case .cards:
+            return matching.sorted { lhs, rhs in
+                if lhs.cards.count != rhs.cards.count { return lhs.cards.count > rhs.cards.count }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             }
         }
     }
@@ -67,15 +93,34 @@ struct DecksView: View {
                         description: Text(searchText.isEmpty ? "Create a deck to start learning." : "Try a different deck name, question, answer, or tag.")
                     )
                 } else {
-                    ForEach(filteredDecks) { deck in
-                        NavigationLink {
-                            DeckDetailView(deck: deck)
-                        } label: {
-                            DeckRow(deck: deck)
+                    Section {
+                        ForEach(filteredDecks) { deck in
+                            NavigationLink {
+                                DeckDetailView(deck: deck)
+                            } label: {
+                                DeckRow(deck: deck)
+                            }
                         }
-                    }
-                    .onDelete { offsets in
-                        offsets.map { filteredDecks[$0] }.forEach(modelContext.delete)
+                        .onDelete { offsets in
+                            offsets.map { filteredDecks[$0] }.forEach(modelContext.delete)
+                        }
+                    } header: {
+                        HStack {
+                            Text("Decks")
+                            Spacer()
+                            Menu {
+                                Picker("Sort", selection: $deckSort) {
+                                    ForEach(DeckSort.allCases) { sort in
+                                        Text(sort.rawValue).tag(sort)
+                                    }
+                                }
+                            } label: {
+                                Label(deckSort.rawValue, systemImage: "arrow.up.arrow.down")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .accessibilityLabel("Sort decks")
+                            .accessibilityValue(deckSort.rawValue)
+                        }
                     }
                 }
             }
@@ -143,21 +188,37 @@ private struct NewDeckSheet: View {
     @State private var name = ""
     @State private var emoji = "📚"
 
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedEmoji: String { emoji.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canCreate: Bool { !trimmedName.isEmpty }
+
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Deck name", text: $name)
-                TextField("Emoji", text: $emoji)
+                Section {
+                    TextField("Deck name", text: $name)
+                        .textInputAutocapitalization(.sentences)
+                } footer: {
+                    Text("Give your deck a clear name so you can find it quickly later.")
+                }
+
+                Section("Icon") {
+                    TextField("Emoji", text: $emoji)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                }
             }
             .navigationTitle("New deck")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        modelContext.insert(Deck(name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled" : name.trimmingCharacters(in: .whitespacesAndNewlines), emoji: emoji.isEmpty ? "📚" : emoji))
+                        guard canCreate else { return }
+                        modelContext.insert(Deck(name: trimmedName, emoji: trimmedEmoji.isEmpty ? "📚" : String(trimmedEmoji.prefix(2))))
                         try? modelContext.save()
                         dismiss()
                     }
+                    .disabled(!canCreate)
                 }
             }
         }

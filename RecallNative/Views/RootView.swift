@@ -19,6 +19,7 @@ struct RootView: View {
     @State private var lockState: LockState = .checking
     @State private var lastBackgroundedAt: Date?
     @State private var isAuthenticating = false
+    @State private var observedCardCount: Int?
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("designTheme") private var designTheme = "recall"
     @AppStorage("designLabTaps") private var designLabTaps = 0
@@ -38,7 +39,8 @@ struct RootView: View {
         let hasEnoughCards = offerCards.count > 6
         let hasEnoughReviews = offerReviews.count >= 3
         let hasStudyHistory = !offerReviews.isEmpty || !ReviewHistoryStore.load().isEmpty
-        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory
+        let hasCreationHistory = UsageMetricsStore.totalCreated > 6
+        return hasNonSampleDeck || hasMultipleDecks || hasEnoughCards || hasEnoughReviews || hasStudyHistory || hasCreationHistory
     }
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -49,8 +51,11 @@ struct RootView: View {
         }
         .tint(RecallTheme.accent).preferredColorScheme(colorScheme).background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .overlay { if lockState != .unlocked { lockOverlay } }
-        .onAppear { Task { await checkAndLock() }; scheduleLaunchOfferIfEligible() }
-        .onChange(of: offerCards.count) { _, _ in scheduleLaunchOfferIfEligible() }
+        .onAppear { observedCardCount = offerCards.count; Task { await checkAndLock() }; scheduleLaunchOfferIfEligible() }
+        .onChange(of: offerCards.count) { _, newCount in
+            recordCardCreationDelta(newCount)
+            scheduleLaunchOfferIfEligible()
+        }
         .onChange(of: offerReviews.count) { _, _ in scheduleLaunchOfferIfEligible() }
         .onChange(of: offerDecks.count) { _, _ in scheduleLaunchOfferIfEligible() }
         .onChange(of: scenePhase) { _, newPhase in if newPhase == .background { lastBackgroundedAt = Date(); syncBeforeSuspension() } }
@@ -61,6 +66,11 @@ struct RootView: View {
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in designLabTaps += 1; if designLabTaps >= 7 { designLabTaps = 0; showingDesignLab = true } })
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in lastBackgroundedAt = Date() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in let elapsed = lastBackgroundedAt.map { Date().timeIntervalSince($0) } ?? .infinity; guard elapsed > BiometricLockService.gracePeriod else { return }; Task { await checkAndLock() } }
+    }
+    private func recordCardCreationDelta(_ newCount: Int) {
+        guard let previous = observedCardCount else { observedCardCount = newCount; return }
+        if newCount > previous { UsageMetricsStore.recordCreated(newCount - previous) }
+        observedCardCount = newCount
     }
     private func syncBeforeSuspension() { guard iCloudEnabled else { return }; do { try modelContext.save(); _ = try iCloud.push(context: modelContext) } catch { } }
     private func scheduleLaunchOfferIfEligible() {

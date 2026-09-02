@@ -2,19 +2,15 @@ import Foundation
 
 /// Persists aggregate review history that cannot be reconstructed from card-level review logs.
 /// The original Recall backup format stores daily review totals in `meta.history`.
-/// Keep that data separate from ReviewLog so imports remain statistically faithful.
 enum ReviewHistoryStore {
     private static let key = "recall.aggregateReviewHistory.v1"
     private static let encoder = JSONEncoder()
     private static let decoder = JSONDecoder()
 
     static func load() -> [Date: Int] {
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let values = try? decoder.decode([String: Int].self, from: data) else { return [:] }
+        guard let data = UserDefaults.standard.data(forKey: key), let values = try? decoder.decode([String: Int].self, from: data) else { return [:] }
         return values.reduce(into: [:]) { result, entry in
-            if let date = parseDate(entry.key), entry.value > 0 {
-                result[Calendar.current.startOfDay(for: date)] = entry.value
-            }
+            if let date = parseDate(entry.key), entry.value > 0 { result[Calendar.current.startOfDay(for: date)] = entry.value }
         }
     }
 
@@ -27,6 +23,10 @@ enum ReviewHistoryStore {
         UserDefaults.standard.set(data, forKey: key)
     }
 
+    static func exportValues() -> [String: Int] {
+        load().reduce(into: [:]) { result, entry in result[key(for: entry.key)] = entry.value }
+    }
+
     static func recordReview(on date: Date = .now) {
         var values = load()
         let day = Calendar.current.startOfDay(for: date)
@@ -34,13 +34,13 @@ enum ReviewHistoryStore {
         replace(with: values)
     }
 
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: key)
-    }
+    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+
+    static func date(from value: String) -> Date? { parseDate(value) }
 
     private static func key(for date: Date) -> String {
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
     private static func parseDate(_ value: String) -> Date? {

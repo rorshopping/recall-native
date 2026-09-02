@@ -16,6 +16,7 @@ struct RootView: View {
     @State private var showingDesignLab = false
     @State private var showingLaunchOffer = false
     @State private var launchOfferScheduled = false
+    @State private var launchOfferTask: Task<Void, Never>?
     @State private var lockState: LockState = .checking
     @State private var lastBackgroundedAt: Date?
     @State private var isAuthenticating = false
@@ -41,7 +42,8 @@ struct RootView: View {
         }
         .tint(RecallTheme.accent).preferredColorScheme(colorScheme).background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .overlay { if lockState != .unlocked { lockOverlay } }
-        .onAppear { observedCardCount = offerCards.count; Task { await checkAndLock() }; scheduleLaunchOfferIfEligible() }
+        .onAppear { observedCardCount = offerCards.count; Task { await checkAndLock() } }
+        .onChange(of: lockState) { _, newState in if newState == .unlocked { scheduleLaunchOfferIfEligible() } }
         .onChange(of: offerCards.count) { _, newCount in
             recordCardCreationDelta(newCount)
             scheduleLaunchOfferIfEligible()
@@ -54,8 +56,9 @@ struct RootView: View {
         .sheet(isPresented: $showingDesignLab) { DesignLabView() }
         .sheet(isPresented: $showingLaunchOffer, onDismiss: { launchOfferDismissed = true }) { LaunchOfferView() }
         .simultaneousGesture(LongPressGesture(minimumDuration: 1.2).onEnded { _ in designLabTaps += 1; if designLabTaps >= 7 { designLabTaps = 0; showingDesignLab = true } })
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in lastBackgroundedAt = Date() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in lastBackgroundedAt = Date(); cancelLaunchOfferSchedule() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in let elapsed = lastBackgroundedAt.map { Date().timeIntervalSince($0) } ?? .infinity; guard elapsed > BiometricLockService.gracePeriod else { return }; Task { await checkAndLock() } }
+        .onDisappear { cancelLaunchOfferSchedule() }
     }
     private func recordCardCreationDelta(_ newCount: Int) {
         guard let previous = observedCardCount else { observedCardCount = newCount; return }
@@ -64,9 +67,22 @@ struct RootView: View {
     }
     private func syncBeforeSuspension() { guard iCloudEnabled else { return }; do { try modelContext.save(); _ = try iCloud.push(context: modelContext) } catch { } }
     private func scheduleLaunchOfferIfEligible() {
-        guard !launchOfferDismissed, !launchOfferScheduled, hasEarnedValue else { return }
+        guard lockState == .unlocked, !launchOfferDismissed, !launchOfferScheduled, !showingLaunchOffer, hasEarnedValue else { return }
         launchOfferScheduled = true
-        Task { @MainActor in try? await Task.sleep(for: .seconds(0.6)); guard !launchOfferDismissed else { return }; showingLaunchOffer = true }
+        launchOfferTask?.cancel()
+        launchOfferTask = Task { @MainActor in
+            do { try await Task.sleep(for: .seconds(0.6)) } catch { return }
+            guard !Task.isCancelled, lockState == .unlocked, !launchOfferDismissed, !showingLaunchOffer, hasEarnedValue else {
+                launchOfferScheduled = false
+                return
+            }
+            showingLaunchOffer = true
+        }
+    }
+    private func cancelLaunchOfferSchedule() {
+        launchOfferTask?.cancel()
+        launchOfferTask = nil
+        if !showingLaunchOffer { launchOfferScheduled = false }
     }
     @ViewBuilder private var lockOverlay: some View {
         ZStack {

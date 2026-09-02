@@ -27,6 +27,12 @@ actor AIImportQueue {
         }
     }
 
+    struct ProgressSnapshot: Sendable {
+        let completed: Int
+        let total: Int
+        let currentName: String?
+    }
+
     private static let storageFileName = "ai-import-queue.json"
     private var jobs: [Job]
     private var isProcessing = false
@@ -55,6 +61,29 @@ actor AIImportQueue {
 
     func snapshot() -> [Job] { jobs }
 
+    func progressSnapshot() -> ProgressSnapshot {
+        let active = jobs.filter {
+            switch $0.state {
+            case .queued, .processing: return true
+            case .completed, .failed: return false
+            }
+        }
+        let completed = jobs.filter {
+            switch $0.state {
+            case .completed, .failed: return true
+            case .queued, .processing: return false
+            }
+        }.count
+        return ProgressSnapshot(
+            completed: completed,
+            total: completed + active.count,
+            currentName: jobs.first(where: {
+                if case .processing = $0.state { return true }
+                return false
+            })?.name
+        )
+    }
+
     func pendingCount() -> Int {
         jobs.reduce(into: 0) { count, job in
             if case .queued = job.state { count += 1 }
@@ -68,6 +97,13 @@ actor AIImportQueue {
             case .completed, .failed: break
             }
         }
+    }
+
+    func retry(_ id: UUID) {
+        guard let index = jobs.firstIndex(where: { $0.id == id }) else { return }
+        guard case .failed = jobs[index].state else { return }
+        jobs[index].state = .queued
+        persist()
     }
 
     func startIfNeeded() async {

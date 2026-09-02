@@ -171,7 +171,9 @@ actor AIImportQueue {
         return removed
     }
 
-    func startIfNeeded() async {
+    /// Processes jobs serially. Cancellation requeues the interrupted job so
+    /// a later foreground or background run can resume it safely.
+    func startIfNeeded() async throws {
         guard !isProcessing else { return }
         isProcessing = true
         defer { isProcessing = false }
@@ -191,7 +193,9 @@ actor AIImportQueue {
                 jobs[completedIndex].state = .completed(result)
                 persist()
             } catch is CancellationError {
-                guard let queuedIndex = jobs.firstIndex(where: { $0.id == id }) else { continue }
+                guard let queuedIndex = jobs.firstIndex(where: { $0.id == id }) else {
+                    throw CancellationError()
+                }
                 jobs[queuedIndex].state = .queued
                 persist()
                 throw CancellationError()

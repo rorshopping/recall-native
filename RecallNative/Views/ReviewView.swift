@@ -150,7 +150,33 @@ struct ReviewView: View {
     }
     private func checkTyped() { guard let card = queue.first else { return }; typeChecked = normalizedAnswer(typed) == normalizedAnswer(card.answer) }
     private var completionView: some View { VStack(spacing: 18) { Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent); Text("Session complete").font(.largeTitle.bold()); Text("\(session.reviewed) review\(session.reviewed == 1 ? "" : "s") · \(session.completed) card\(session.completed == 1 ? "" : "s") completed").foregroundStyle(.secondary); Button("Study again", action: restart).buttonStyle(.borderedProminent); Button("Done") { dismiss() }.buttonStyle(.bordered) }.padding(32) }
-    private var emptyView: some View { VStack(spacing: 14) { Image(systemName: "checkmark.circle.fill").font(.system(size: 60)).foregroundStyle(RecallTheme.accent); Text("Nothing due right now").font(.title.bold()); Text("All caught up. Your next reviews will appear here when they are due.").foregroundStyle(.secondary).multilineTextAlignment(.center); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }.padding(32) }
+
+    private var hasNewCardsWaitingForTomorrow: Bool {
+        guard !studyAll else { return false }
+        let scoped = cards.filter { deck == nil || $0.deck?.id == deck?.id }
+        return scoped.contains { card in
+            guard card.isNew, let cardDeck = card.deck else { return false }
+            return cardDeck.newRemainingToday == 0
+        }
+    }
+
+    private var emptyView: some View {
+        let limitReached = hasNewCardsWaitingForTomorrow
+        return VStack(spacing: 14) {
+            Image(systemName: limitReached ? "moon.stars.fill" : "checkmark.circle.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(RecallTheme.accent)
+            Text(limitReached ? "Daily limit reached" : "Nothing due right now")
+                .font(.title.bold())
+            Text(limitReached
+                 ? "You’ve reached today’s new-card limit. Come back tomorrow for more new cards."
+                 : "All caught up. Your next reviews will appear here when they are due.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
+        }
+        .padding(32)
+    }
 
     private func initializeIfNeeded() {
         guard !didInitialize else { return }

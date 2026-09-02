@@ -30,6 +30,10 @@ private struct RecallBootstrapView: View {
 
     @MainActor
     private func bootstrapStore() {
+        if #available(iOS 26.0, *) {
+            AIImportBackgroundTask.shared.register()
+        }
+
         do {
             if decks.isEmpty {
                 try SeedDataService.insertSampleDeck(into: modelContext)

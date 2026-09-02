@@ -23,9 +23,7 @@ struct ReviewView: View {
     let studyAll: Bool
     @Query(sort: \Flashcard.dueAt) private var cards: [Flashcard]
     @State private var queue: [Flashcard] = []
-    @State private var total = 0
-    @State private var reviewed = 0
-    @State private var completedCards: Set<UUID> = []
+    @State private var session = ReviewSessionState(total: 0)
     @State private var introducedNewCards: Set<UUID> = []
     @State private var revealed = false
     @State private var completed = false
@@ -53,17 +51,15 @@ struct ReviewView: View {
         .onDisappear { audio.stop() }
     }
 
-    private var progressCount: Int { min(completedCards.count + 1, max(total, 1)) }
-
     private var studyBody: some View {
         let card = queue[0]
         return VStack(spacing: 18) {
             HStack {
                 Text(deck?.name ?? "Review").font(.headline)
                 Spacer()
-                Text("\(progressCount) / \(max(total, 1))").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                Text("\(session.progress) / \(max(session.total, 1))").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
             }
-            ProgressView(value: Double(progressCount), total: Double(max(total, 1))).tint(RecallTheme.accent)
+            ProgressView(value: Double(session.progress), total: Double(max(session.total, 1))).tint(RecallTheme.accent)
 
             RecallCard {
                 VStack(alignment: .leading, spacing: 14) {
@@ -153,7 +149,7 @@ struct ReviewView: View {
             .joined(separator: " ")
     }
     private func checkTyped() { guard let card = queue.first else { return }; typeChecked = normalizedAnswer(typed) == normalizedAnswer(card.answer) }
-    private var completionView: some View { VStack(spacing: 18) { Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent); Text("Session complete").font(.largeTitle.bold()); Text("\(reviewed) review\(reviewed == 1 ? "" : "s") · \(completedCards.count) card\(completedCards.count == 1 ? "" : "s") completed").foregroundStyle(.secondary); Button("Study again", action: restart).buttonStyle(.borderedProminent); Button("Done") { dismiss() }.buttonStyle(.bordered) }.padding(32) }
+    private var completionView: some View { VStack(spacing: 18) { Image(systemName: "checkmark.circle.fill").font(.system(size: 64)).foregroundStyle(RecallTheme.accent); Text("Session complete").font(.largeTitle.bold()); Text("\(session.reviewed) review\(session.reviewed == 1 ? "" : "s") · \(session.completed) card\(session.completed == 1 ? "" : "s") completed").foregroundStyle(.secondary); Button("Study again", action: restart).buttonStyle(.borderedProminent); Button("Done") { dismiss() }.buttonStyle(.bordered) }.padding(32) }
     private var emptyView: some View { VStack(spacing: 14) { Image(systemName: "checkmark.circle.fill").font(.system(size: 60)).foregroundStyle(RecallTheme.accent); Text("Nothing due right now").font(.title.bold()); Text("All caught up. Your next reviews will appear here when they are due.").foregroundStyle(.secondary).multilineTextAlignment(.center); Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }.padding(32) }
 
     private func initializeIfNeeded() {
@@ -179,11 +175,11 @@ struct ReviewView: View {
             initial = due + fresh
         }
         queue = initial
-        total = initial.count
+        session.reset(total: initial.count)
         didInitialize = true
     }
 
-    private func restart() { audio.stop(); didInitialize = false; completed = false; queue = []; total = 0; reviewed = 0; completedCards = []; introducedNewCards = []; revealed = false; typed = ""; typeChecked = nil; initializeIfNeeded() }
+    private func restart() { audio.stop(); didInitialize = false; completed = false; queue = []; session.reset(total: 0); introducedNewCards = []; revealed = false; typed = ""; typeChecked = nil; initializeIfNeeded() }
     private func displayText(for card: Flashcard) -> String { let source = revealed ? card.answer : card.question; guard card.type == "cloze", !revealed else { return source }; return source.replacingOccurrences(of: #"\{\{c\d+::[^}]*\}\}"#, with: "… … …", options: .regularExpression) }
     private func rate(_ grade: Int) {
         guard let card = queue.first else { return }
@@ -201,8 +197,9 @@ struct ReviewView: View {
         }
         modelContext.insert(ReviewLog(rating: grade + 1, card: card)); try? modelContext.save()
         let current = queue.removeFirst()
-        if grade == 0 { queue.append(current) } else { completedCards.insert(current.id) }
-        reviewed += 1; revealed = false; typed = ""; typeChecked = nil
+        if grade == 0 { queue.append(current) }
+        session.recordReview(completedCard: grade != 0)
+        revealed = false; typed = ""; typeChecked = nil
         if queue.isEmpty { completed = true }
     }
 }

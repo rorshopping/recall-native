@@ -36,13 +36,16 @@ enum OnDeviceAIProvider: Sendable {
 
     static func current(gemmaAvailable: Bool, appleAvailable: Bool? = nil) -> OnDeviceAIProvider {
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            if appleAvailable ?? SystemLanguageModel.default.isAvailable {
-                return .apple
-            }
+        if let appleAvailable {
+            return appleAvailable ? .apple : (gemmaAvailable ? .gemma : .unavailable)
+        }
+        if #available(iOS 26.0, *), SystemLanguageModel.default.isAvailable {
+            return .apple
         }
         #else
-        _ = appleAvailable
+        if let appleAvailable {
+            return appleAvailable ? .apple : (gemmaAvailable ? .gemma : .unavailable)
+        }
         #endif
         return gemmaAvailable ? .gemma : .unavailable
     }
